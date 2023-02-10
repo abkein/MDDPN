@@ -8,7 +8,6 @@ import warnings
 import numpy as np
 import freud
 import adios2
-# sa
 
 # import pandas as pd
 # import time

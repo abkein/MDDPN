@@ -49,8 +49,10 @@ class LogicError(Exception):
     pass
 
 
-def process_file(file):
-    ps = {'run_labels': {}}
+def process_file(file, state):
+    state['run_labels'] = {{"START": 0}}
+    runs = {}
+    variables = {}
     runc = 0
     label = None
     with file.open('r') as fin:
@@ -58,32 +60,34 @@ def process_file(file):
             if re.match(r"^variable[ \t]+[a-zA-Z]+[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+", line):
                 w_variable, VAR_NAME, w_equal, VAR_VAL = line.split()
                 VAR_VAL = eval(VAR_VAL)
-                ps[VAR_NAME] = VAR_VAL
-                ps["v_" + VAR_NAME] = VAR_VAL
+                variables[VAR_NAME] = VAR_VAL
+                variables["v_" + VAR_NAME] = VAR_VAL
             if re.match(r"^variable[ \t]+[a-zA-Z]+[ \t]+equal[ \t]+\$\(.+\)", line):
                 w_variable, VAR_NAME, w_equal, VAR_VAL = line.split()
                 VAR_VAL = VAR_VAL[2:-1]
                 VAR_VAL = eval(VAR_VAL, globals(), ps)
-                ps[VAR_NAME] = VAR_VAL
-                ps["v_" + VAR_NAME] = VAR_VAL
+                variables[VAR_NAME] = VAR_VAL
+                variables["v_" + VAR_NAME] = VAR_VAL
             if re.match(r"^timestep[ \t]+[\d]+[\.\/]?\d+", line):
                 w_timestep, TIME_STEP = line.split()
-                ps['dt'] = eval(TIME_STEP)
+                TIME_STEP = eval(TIME_STEP)
+                variables['dt'] = TIME_STEP
+                state['time_step'] = TIME_STEP
             if re.match(r"^run[ \t]+\d+[.\/]?\d+", line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval(RUN_STEPS)
-                ps["run" + str(runc)] = RUN_STEPS
-                ps["run_labels"][label] += [RUN_STEPS]
+                runs["run" + str(runc)] = RUN_STEPS
+                state["run_labels"][label] += [RUN_STEPS]
                 runc += 1
             if re.match(r"^run[ \t]+\${[a-zA-Z]+}", line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval("ps['" + RUN_STEPS[2:-1] + "']")
-                ps["run" + str(runc)] = RUN_STEPS
-                ps["run_labels"][label] += [RUN_STEPS]
+                runs["run" + str(runc)] = RUN_STEPS
+                state["run_labels"][label] += [RUN_STEPS]
                 runc += 1
             if re.match(r"#[ \t]+label:[ \t][a-zA-Z]+", line):
                 label = line.split()[-1]
-                ps['run_labels'][label] = []
+                state['run_labels'][label] = []
             if re.match(r"restart[ \t]+(\$\{[a-zA-Z]+\}|[\d]+)[ \t]+" + restarts_folder + r"\/[a-zA-Z\.]+\*", line):
                 ps['restart_files'] = line.split()[-1].split('/')[-1][:-1]
             if re.match(r"dump[ \t]+[a-zA-Z]+[ \t]+[a-zA-Z]+[ \t]+atom\/adios[ \t]+(\$\{[a-zA-Z]+\}|\d+)[ \t]+[a-zA-Z\.\/]+", line):
