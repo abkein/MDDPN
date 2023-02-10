@@ -5,7 +5,6 @@
 # Last-update: 2023-01-07 16:21:14
 #
 
-from curses.ascii import ctrl
 from pathlib import Path
 # import sys
 # import os
@@ -55,12 +54,12 @@ data_file = 'data.json'
 def bearbeit(cwd: Path, args):
     print("Started")
 
-    storages = json.load(args.storages)
+    storages = json.loads(args.storages[0])
 
     for storage, end_step in storages.items():
         if end_step == "full":
-            with adios2.open(str(cwd / storage), 'r') as reader:
-                storages[storage] = reader.steps()
+            with adios2.open(str(cwd / storage), 'r') as reader_c:
+                storages[storage] = reader_c.steps()
 
     adin = adios2.open(str(cwd / list(storages.items())[0][0]), 'r')
 
