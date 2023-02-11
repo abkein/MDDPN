@@ -22,6 +22,7 @@ in_file_field = "in.file"
 jobs_list_field = "jobs"
 
 restarts_folder = "restarts"
+dump_folder = "dumps"
 state_file = 'state.json'
 sl_dir_def = "slinfo"
 default_job_name = "lammps"
