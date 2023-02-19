@@ -123,7 +123,7 @@ def treat(tdir, savefile, kmax=10, g=19, dt=0.005, dis=1000):
     print("Treat end.")
 
 
-def treat_async(input, cwd, savefile, kmax=10, g=19, dt=0.005, dis=1000):
+def treat_async(input, cwd, savefile, stateQue, kmax=10, g=19, dt=0.005, dis=1000):
     with open(cwd / 'data.json', 'r') as fp:
         son = json.load(fp)
     N_atoms = son['N']

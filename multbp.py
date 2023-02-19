@@ -22,27 +22,37 @@ from datetime import datetime
 import treat
 
 
-def reader(cwd: Path, storages, output, sync):
+def stateWriter(cwd, stateQue):
+    savefile = "pstates.json"
+    to_write = {}
+    while True:
+        data = stateQue.get()
+        if isinstance(data, fd.SpecialObject):
+            break
+        to_write[data[0]] = data[1]
+        with open(cwd / savefile, 'w') as fp:
+            json.dump(to_write, fp)
+
+
+def reader(cwd: Path, storages, output, sync, stateQue):
     print("Launch reader")
-    ctr_a = 0
+    counter = 0
     for storage, end_step in storages.items():
         with adios2.open(str(cwd / storage), 'r') as reader:
             total_steps = reader.steps()
-            if end_step >= total_steps:
-                raise RuntimeError(
-                    f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
 
             for step in reader:
-                ctr = step.current_step() + ctr_a
+                ctr = step.current_step()
                 arr = step.read('atoms')
                 arr = arr[:, 2:5]
-                output.put((arr, ctr))
+                output.put((arr, counter))
                 print(f"Readed step {ctr} of {end_step} of {storage}")
                 while ctr - sync.value > 50:
                     time.sleep(0.5)
-                if ctr == end_step - 1:
-                    ctr_a += ctr
+                counter += 1
+                if ctr == end_step - 1 or ctr == total_steps - 1:
                     break
+
     print("Reading complete")
     output.put(fd.SpecialObject())
 
@@ -51,15 +61,31 @@ prdata_file = "ntb.bp"
 data_file = 'data.json'
 
 
+def storage_check(storages):
+    for storage, end_step in storages.items():
+        with adios2.open(str(cwd / storage), 'r') as reader:
+            total_steps = reader.steps()
+            if end_step > total_steps:
+                raise RuntimeError(
+                    f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
+
+
+def storage_rsolve(storages):
+    for storage, end_step in storages.items():
+        if end_step == "full":
+            with adios2.open(str(cwd / storage), 'r') as reader_c:
+                storages[storage] = reader_c.steps()
+    return storages
+
+
 def bearbeit(cwd: Path, args):
     print("Started")
 
     storages = json.loads(args.storages[0])
 
-    for storage, end_step in storages.items():
-        if end_step == "full":
-            with adios2.open(str(cwd / storage), 'r') as reader_c:
-                storages[storage] = reader_c.steps()
+    storages = storage_rsolve(storages)
+
+    storage_check(storages)
 
     adin = adios2.open(str(cwd / list(storages.items())[0][0]), 'r')
 
@@ -81,27 +107,35 @@ def bearbeit(cwd: Path, args):
 
     mpman = Manager()
     dataQueue = mpman.Queue()
+    stateQueue = mpman.Queue()
     treatQue = mpman.Queue() if args.add_treat else None
     sync = mpman.Value(int, 0)
 
     proccedProc = Process(target=fd.proceed,
                           args=(dataQueue, N, box, cwd /
-                                prdata_file, sync, treatQue),
+                                prdata_file, sync, stateQueue, treatQue),
                           name="WproceedW")
     proccedProc.start()
 
     if args.add_treat:
         treatProc = Process(target=treat.treat_async,
-                            args=(treatQue, cwd, args.outfile,
+                            args=(treatQue, cwd, args.outfile, stateQueue,
                                   args.kmax, args.critical_size, args.timestep, args.dis),
                             name="WtreatW")
         treatProc.start()
 
-    reader(cwd, storages, dataQueue, sync)
+    statesProc = Process(target=stateWriter, args=(cwd, stateQueue),
+                         name="WwriterW")
+    statesProc.start()
+
+    reader(cwd, storages, dataQueue, sync, stateQueue)
 
     proccedProc.join()
     if args.add_treat:
         treatProc.join()
+
+    stateQueue.put(fd.SpecialObject())
+    statesProc.join()
 
     print("End. Exit...")
 

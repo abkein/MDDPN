@@ -339,9 +339,12 @@ def restart(cwd, args):
     fl = False
     for label_c in reversed(state["labels"]):
         if fl:
+            # print(current_label, label_c, str(
+            #     int(state["run_labels"][label_c]["runs"])))
             if '0' in state["run_labels"][label_c]:
-                state["run_labels"][label_c][state["run_labels"]
-                                             [label_c]["runs"] - 1]["last_step"] = last_file
+                state["run_labels"][label_c][str(
+                    int(state["run_labels"][label_c]["runs"]))]["last_step"] = last_file
+                break
         elif label_c == current_label:
             fl = True
     state["run_labels"][current_label][f"{state['run_labels'][label]['runs']}"] = {

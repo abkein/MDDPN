@@ -54,7 +54,7 @@ class SpecialObject():
         pass
 
 
-def proceed(input, N, box, savepath, sync, output: None):
+def proceed(input, N, box, savepath, sync, stateQue, output: None):
     print("Launch proceed")
     adin = adios2.open(str(savepath), "w")  # type: ignore
     adin.write("Lx", np.array([box.Lx]))
