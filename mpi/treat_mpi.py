@@ -8,7 +8,7 @@ import numpy as np
 from pathlib import Path
 import pandas as pd
 import freud
-from mpi.mpiworks import MPI_TAGS, MPIComm
+from mpiworks import MPI_TAGS, MPIComm
 from typing import Tuple, Union
 
 
@@ -62,8 +62,10 @@ def nvs(sizes: np.ndarray, dist: np.ndarray, volume: float, kmin: int, T: float)
 
 
 def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
+    mpi_comm.Barrier()
     proc_rank = mpi_rank - 1
-    cwd, N_atoms, box, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[Path, int, freud.box, int, int, float, int]
+    cwd, N_atoms, bdims, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[Path, int, np.ndarray, int, int, float, int]
+    box = freud.box.Box.from_box(bdims)
     volume = box.volume
     sizes = np.arange(1, N_atoms + 1)
 
@@ -72,10 +74,10 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
     temperatures = temperatures[1].to_numpy(dtype=np.float64)
 
     while True:
-        step, dist = mpi_comm.recv(dest=proc_rank, tag=MPI_TAGS.DATA)  # type: Tuple[int, np.ndarray]
+        step, dist = mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.DATA)  # type: Tuple[int, np.ndarray]
 
         temp = temperatures[temptime == int(step * dis)]
-        tow = np.zeros(8, dtype=np.float64)
+        tow = np.zeros(9, dtype=np.float64)
         tow[0] = step * dt * dis
         tow[1] = mean_size(sizes, dist)
         tow[2] = maxsize(sizes, dist)
@@ -87,6 +89,8 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
         tow[8] = step
 
         mpi_comm.send(obj=tow, dest=1, tag=MPI_TAGS.WRITE)
+
+        mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
 
         if mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.SERVICE) and not mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.DATA):
             if mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.SERVICE) == 1:

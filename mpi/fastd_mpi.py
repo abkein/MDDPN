@@ -48,7 +48,9 @@ def clmatrix(data: np.ndarray, box: freud.box, N: int) -> np.ndarray:
 
 
 def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
-    N, box = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, freud.box]
+    mpi_comm.Barrier()
+    N, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, np.ndarray]
+    box = freud.box.Box.from_box(bdims)
     reader_rank = mpi_rank - 1
     trt_rank = mpi_rank + 1
     while True:
@@ -71,6 +73,8 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
         mpi_comm.send(obj=tpl, dest=trt_rank, tag=MPI_TAGS.DATA)
 
         mpi_comm.send(obj=step, dest=reader_rank, tag=MPI_TAGS.SERVICE)
+
+        mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
 
         if mpi_comm.iprobe(source=reader_rank, tag=MPI_TAGS.SERVICE) and not mpi_comm.iprobe(source=reader_rank, tag=MPI_TAGS.DATA):
             if mpi_comm.recv(source=reader_rank, tag=MPI_TAGS.SERVICE) == 1:

@@ -9,9 +9,9 @@ from math import floor
 from pathlib import Path
 from mpi4py import MPI
 import mpiworks as MW
-from mpiworks import MPIComm, MPI_TAGS
+from mpiworks import MPIComm, MPI_TAGS, MPISanityError
 
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, List
 
 import numpy as np
 # from multiprocessing import Process, Manager
@@ -50,9 +50,10 @@ class Role(Enum):
 
 
 def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
+    mpi_comm.Barrier()
     ino, storages_ = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, Dict[str, int]]
-
     worker_counter = 0
+    sync_value = 0
     for storage in storages_:
         with adios2.open(str(cwd / storage), 'r') as reader:
             total_steps = reader.steps()
@@ -75,6 +76,9 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
                         source=mpi_rank + 1, tag=1)  # type: int
                 while worker_counter - sync_value > 50:
                     time.sleep(0.5)
+
+                mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.SERVICE)
+
                 if step.current_step() == total_steps - 1:
                     break
 
@@ -82,24 +86,24 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
     return 0
 
 
-def bearbeit(cwd: Path, storages: Dict[str, int]) -> None:
+def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, np.ndarray]:
     storage = list(storages.keys())[0]
     adin = adios2.open(str(cwd / storage), 'r')
 
-    N = int(adin.read('natoms'))
-    Lx = adin.read('boxxhi')
-    Ly = adin.read('boxyhi')
-    Lz = adin.read('boxzhi')
+    N = int(adin.read('natoms'))  # type: int
+    Lx = adin.read('boxxhi')  # type: float
+    Ly = adin.read('boxyhi')  # type: float
+    Lz = adin.read('boxzhi')  # type: float
 
     adin.close()
 
-    box = freud.box.Box.from_box(np.array([Lx, Ly, Lz]))
-    print("Box volume is: ", box.volume)
+    bdims = np.array([Lx, Ly, Lz])
+    print("Box volume is: ", np.prod(bdims))
     print("N atoms: ", N)
-    son = {'N': N, "Volume": box.volume}
+    son = {'N': N, "Volume": np.prod(bdims)}
     with open(cwd / data_file, 'w') as fp:
         json.dump(son, fp)
-    return N, box
+    return (N, bdims)
 
 
 def storage_check(cwd: Path, storages: Dict[str, int]):
@@ -208,48 +212,76 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         #         mpi_comm.send(obj=sd, dest=i + j + nv,
         #                       tag=MPI_TAGS.NEIGHBORS)
 
-        N, box = bearbeit(cwd, storages)
+        N, bdims = bearbeit(cwd, storages)
 
         for i in range(thread_num):
             dasdict = wd[str(i)]
             sn = int(dasdict["no"])
             store = dasdict["storages"]
             mpi_comm.send(obj=(sn, store), dest=nv + 3 * i, tag=MPI_TAGS.SERV_DATA)
-            mpi_comm.send(obj=(N, box), dest=nv + 3 * i + 1, tag=MPI_TAGS.SERV_DATA)
-            tpl = (cwd, N, box, args.kmax, args.critical_size, args.timestep, args.dis)
+            mpi_comm.send(obj=(N, bdims), dest=nv + 3 * i + 1, tag=MPI_TAGS.SERV_DATA)
+            tpl = (cwd, N, bdims, args.kmax, args.critical_size, args.timestep, args.dis)
             mpi_comm.send(obj=tpl, dest=nv + 3 * i + 2, tag=MPI_TAGS.SERV_DATA)
+
+        mpi_comm.Barrier()
+        print(f"MPI rank {mpi_rank}, barrier off")
+        response_array = mpi_comm.gather(None)  # type: List[Tuple[int, str]]
+        # print("ROOT responce:-----")
+        # print(response_array)
+        # print("END responce-------")
+        states = {}
+        for i in range(1, len(response_array)):
+            print(f"MPI rank {response_array[i][0]} --- {response_array[i][1]}")
+            states[str(i)] = {}
+            states[str(i)]['name'] = response_array[i][1]
+
+        mpi_comm.Barrier()
+        while True:
+            for i in range(1, mpi_size - 1):
+                if mpi_comm.iprobe(source=i, tag=MPI_TAGS.SERVICE):
+                    states[str(i)]['state'] = mpi_comm.recv(source=i, tag=MPI_TAGS.SERVICE)
+            with open(cwd / "st.json", "w") as fp:
+                json.dump(states, fp)
 
 
 def mpi_goto(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
     mrole = mpi_comm.recv(source=0, tag=MPI_TAGS.DISTRIBUTION)  # type: Role
     if mrole == Role.reader:
-        # neighbor = mpi_comm.recv(
-        #     source=0, tag=MPI_TAGS.NEIGHBORS)  # type: int
+        mpi_comm.gather((mpi_rank, "reader"))
         return reader(cwd, mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.proceeder:
+        mpi_comm.gather((mpi_rank, "proceeder"))
         return fd.proceed(mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.treater:
+        mpi_comm.gather((mpi_rank, "treater"))
         return treat.treat_mpi(mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.kill:
+        mpi_comm.gather((mpi_rank, "killed"))
         return 0
 
 
 def mpi_root(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
     ret = MW.root_sanity(mpi_comm)
     if ret != 0:
+        raise MPISanityError("MPI root sanity doesn't passed")
         return ret
     else:
+        print(f"MPI rank {mpi_rank} - root MPI thread, sanity pass, running main")
         return main(cwd, mpi_comm, mpi_rank, mpi_size, 3)
 
 
 def mpi_nonroot(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
     ret = MW.nonroot_sanity(mpi_comm)
+    mpi_comm.Barrier()
     if ret != 0:
+        raise MPISanityError(f"MPI nonroot sanity doesn't passed, rank {mpi_rank}")
         return ret
     elif mpi_rank == 1:
         # return stateWriter(cwd, mpi_comm, mpi_rank, mpi_size)
+        mpi_comm.gather((mpi_rank, "csvWriter"))
         return MW.csvWriter(cwd / "rdata.csv", mpi_comm, mpi_rank, mpi_size)
     elif mpi_rank == 2:
+        mpi_comm.gather((mpi_rank, "ad_mpi_writer"))
         return MW.ad_mpi_writer(cwd / "ntb.bp", mpi_comm, mpi_rank, mpi_size)
     else:
         return mpi_goto(cwd, mpi_comm, mpi_rank, mpi_size)
@@ -260,8 +292,9 @@ def mpi_wrap():
     mpi_rank = mpi_comm.Get_rank()
     mpi_size = mpi_comm.Get_size()
 
-    ret = MW.base_sanity(mpi_size, mpi_rank, 5)
+    ret = MW.base_sanity(mpi_size, mpi_rank, 6)
     if ret != 0:
+        raise MPISanityError(f"MPI base sanity doesn't passed, mpi rank {mpi_rank}")
         return ret
 
     cwd = Path.cwd()

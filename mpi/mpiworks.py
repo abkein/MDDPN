@@ -20,8 +20,11 @@ MPIComm = Union[MPI.Intracomm, MPI.Intercomm]
 GatherResponseType = List[Tuple[str, int]]
 
 
-class SpecialObject():
+class MPISanityError(RuntimeError):
     pass
+
+# class SpecialObject():
+#     pass
 
 
 class MPI_TAGS(int, Enum):
@@ -58,12 +61,12 @@ def base_sanity(mpi_size, mpi_rank, min):
         print('If you are, then please use an `-n` of at least 2!')
         print('(Or, when in SLURM, use an `--ntasks` of at least 2.)')
         print('If you did all that, then your MPI setup may be bad.')
-        return 1
+        raise MPISanityError("Only one execution thread was started")
 
     if mpi_size < min:
         print(
             f"This program requires at least {min} mpi tasks, but world size is only {mpi_size}")
-        return 1
+        raise MPISanityError(f"Number of started threads is not enought to properly run this app. You must run at least {min} threads")
 
     if mpi_size >= 1000 and mpi_rank == 0:
         print('WARNING:  Your world size {} is over 999!'.format(mpi_size))
@@ -73,7 +76,7 @@ def base_sanity(mpi_size, mpi_rank, min):
 
 
 def root_sanity(mpi_comm: MPIComm):
-    random_number = secrets.randbelow(round(time))
+    random_number = secrets.randbelow(round(time.time()))
     mpi_comm.bcast(random_number)
     print('Controller @ MPI Rank   0:  Input {}'.format(random_number))
 
@@ -151,6 +154,7 @@ def nonroot_sanity(mpi_comm: MPIComm):
 
 
 def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
+    mpi_comm.Barrier()
     threads = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)  # type: List[int]
     with adios2.open(str(file), 'w') as adout:  # type: ignore
         while True:
@@ -159,15 +163,21 @@ def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
                     step, arr = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: Tuple[int, np.ndarray]
                     adout.write("step", np.array(step))
                     adout.write("dist", arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)
+                    mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
 
 
 def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
+    mpi_comm.Barrier()
     threads = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)  # type: List[int]
 
-    with open(file, "wb") as csv_file:
+    ctr = 0
+
+    with open(file, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
                     data = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: np.ndarray
                     writer.writerow(data)
+                    ctr += 1
+                    mpi_comm.send(obj=ctr, dest=0, tag=MPI_TAGS.SERVICE)
