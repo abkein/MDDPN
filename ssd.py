@@ -374,7 +374,7 @@ def end(cwd, args):
 
     with (cwd / state_file).open('r') as f:
         state = json.load(f)
-    time_step = state['ps']['dt']
+    time_step = state['variables']['dt']
 
     temperatures = pd.read_csv(cwd / "temperature.log", header=None)
     temptime = temperatures[0].to_numpy(dtype=np.uint64)

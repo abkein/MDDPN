@@ -7,6 +7,7 @@
 
 from math import floor
 from pathlib import Path
+from urllib import response
 from mpi4py import MPI
 import mpiworks as MW
 from mpiworks import MPIComm, MPI_TAGS, MPISanityError
@@ -52,6 +53,7 @@ class Role(Enum):
 def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
     mpi_comm.Barrier()
     ino, storages_ = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, Dict[str, int]]
+    proceeder_rank = mpi_rank + 1
     worker_counter = 0
     sync_value = 0
     for storage in storages_:
@@ -66,14 +68,13 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
                 arr = step.read('atoms')
                 arr = arr[:, 2:5]
                 tpl = (worker_counter + ino, mpi_rank, arr)
-                mpi_comm.send(obj=tpl, dest=mpi_rank + 1, tag=MPI_TAGS.DATA)
+                mpi_comm.send(obj=tpl, dest=proceeder_rank, tag=MPI_TAGS.DATA)
                 worker_counter += 1
                 if i == storages_[storage]["end"] - 1:
                     break
                 i += 1
-                while mpi_comm.iprobe(source=mpi_rank + 1, tag=MPI_TAGS.SERVICE):
-                    sync_value = mpi_comm.recv(
-                        source=mpi_rank + 1, tag=1)  # type: int
+                while mpi_comm.iprobe(source=proceeder_rank, tag=MPI_TAGS.SERVICE):
+                    sync_value = mpi_comm.recv(source=proceeder_rank, tag=MPI_TAGS.SERVICE)  # type: int
                 while worker_counter - sync_value > 50:
                     time.sleep(0.5)
 
@@ -82,7 +83,7 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
                 if step.current_step() == total_steps - 1:
                     break
 
-    mpi_comm.send(obj=1, dest=mpi_rank + 1, tag=MPI_TAGS.SERVICE)
+    mpi_comm.send(obj=1, dest=proceeder_rank, tag=MPI_TAGS.SERVICE)
     return 0
 
 
@@ -190,16 +191,18 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         storages = storage_rsolve(cwd, storages)
         storage_check(cwd, storages)
         thread_num = floor((mpi_size - nv) / 3)
+        print(f"Thread num: {thread_num}")
+        thread_len = 3
         wd = distribute(storages, thread_num)
 
         for i in range(thread_num):
-            for j in range(3):
-                mpi_comm.send(obj=Role(j), dest=i + j + nv, tag=MPI_TAGS.DISTRIBUTION)
+            for j in range(thread_len):
+                mpi_comm.send(obj=Role(j), dest=thread_len*i + j + nv, tag=MPI_TAGS.DISTRIBUTION)
 
-        for i in range(3 * thread_num + nv, mpi_size):
-            mpi_comm.send(obj=Role.kill, dest=i + j + nv, tag=MPI_TAGS.DISTRIBUTION)
-        mpi_comm.send(obj=[nv + 1 + i for i in range(thread_num)], dest=2, tag=MPI_TAGS.TO_ACCEPT)
-        mpi_comm.send(obj=[nv + 2 + i for i in range(thread_num)], dest=1, tag=MPI_TAGS.TO_ACCEPT)
+        for i in range(thread_len * thread_num + nv, mpi_size):
+            mpi_comm.send(obj=Role.kill, dest=i, tag=MPI_TAGS.DISTRIBUTION)
+        mpi_comm.send(obj=[nv + 1 + thread_len*i for i in range(thread_num)], dest=2, tag=MPI_TAGS.TO_ACCEPT)
+        mpi_comm.send(obj=[nv + 2 + thread_len*i for i in range(thread_num)], dest=1, tag=MPI_TAGS.TO_ACCEPT)
 
         # for i in range(thread_num):
         #     for j in range(3):
@@ -218,26 +221,37 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
             dasdict = wd[str(i)]
             sn = int(dasdict["no"])
             store = dasdict["storages"]
-            mpi_comm.send(obj=(sn, store), dest=nv + 3 * i, tag=MPI_TAGS.SERV_DATA)
-            mpi_comm.send(obj=(N, bdims), dest=nv + 3 * i + 1, tag=MPI_TAGS.SERV_DATA)
+            mpi_comm.send(obj=(sn, store), dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
+            mpi_comm.send(obj=(N, bdims), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
             tpl = (cwd, N, bdims, args.kmax, args.critical_size, args.timestep, args.dis)
-            mpi_comm.send(obj=tpl, dest=nv + 3 * i + 2, tag=MPI_TAGS.SERV_DATA)
+            mpi_comm.send(obj=tpl, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
 
         mpi_comm.Barrier()
         print(f"MPI rank {mpi_rank}, barrier off")
-        response_array = mpi_comm.gather(None)  # type: List[Tuple[int, str]]
-        # print("ROOT responce:-----")
-        # print(response_array)
-        # print("END responce-------")
         states = {}
-        for i in range(1, len(response_array)):
-            print(f"MPI rank {response_array[i][0]} --- {response_array[i][1]}")
-            states[str(i)] = {}
-            states[str(i)]['name'] = response_array[i][1]
+
+        response_array = []
+        while True:
+            for i in range(1, mpi_size):
+                if mpi_comm.iprobe(source=i, tag=MPI_TAGS.ONLINE):
+                    resp = mpi_comm.recv(source=i, tag=MPI_TAGS.ONLINE)
+                    print(f"Recieved from {i}: {resp}")
+                    states[str(i)] = {}
+                    states[str(i)]['name'] = resp
+                    response_array.append((i, resp))
+            if len(response_array) == mpi_size - 1:
+                break
+
+        # response_array = mpi_comm.gather(None)  # type: List[Tuple[int, str]]
+        # print("Gathered")
+        # for i in range(1, len(response_array)):
+        #     print(f"MPI rank {response_array[i][0]} --- {response_array[i][1]}")
+        #     states[str(i)] = {}
+        #     states[str(i)]['name'] = response_array[i][1]
 
         mpi_comm.Barrier()
         while True:
-            for i in range(1, mpi_size - 1):
+            for i in range(1, mpi_size):
                 if mpi_comm.iprobe(source=i, tag=MPI_TAGS.SERVICE):
                     states[str(i)]['state'] = mpi_comm.recv(source=i, tag=MPI_TAGS.SERVICE)
             with open(cwd / "st.json", "w") as fp:
@@ -247,26 +261,31 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
 def mpi_goto(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
     mrole = mpi_comm.recv(source=0, tag=MPI_TAGS.DISTRIBUTION)  # type: Role
     if mrole == Role.reader:
-        mpi_comm.gather((mpi_rank, "reader"))
+        # mpi_comm.gather((mpi_rank, "reader"))
+        mpi_comm.send(obj="reader", dest=0, tag=MPI_TAGS.ONLINE)
         return reader(cwd, mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.proceeder:
-        mpi_comm.gather((mpi_rank, "proceeder"))
+        # mpi_comm.gather((mpi_rank, "proceeder"))
+        mpi_comm.send(obj="proceeder", dest=0, tag=MPI_TAGS.ONLINE)
         return fd.proceed(mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.treater:
-        mpi_comm.gather((mpi_rank, "treater"))
+        # mpi_comm.gather((mpi_rank, "treater"))
+        mpi_comm.send(obj="treater", dest=0, tag=MPI_TAGS.ONLINE)
         return treat.treat_mpi(mpi_comm, mpi_rank, mpi_size)
     elif mrole == Role.kill:
-        mpi_comm.gather((mpi_rank, "killed"))
+        # mpi_comm.gather((mpi_rank, "killed"))
+        mpi_comm.send(obj="killed", dest=0, tag=MPI_TAGS.ONLINE)
         return 0
 
 
 def mpi_root(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
-    ret = MW.root_sanity(mpi_comm)
+    ret = MW.root_sanity(mpi_comm, no_print=True)
     if ret != 0:
         raise MPISanityError("MPI root sanity doesn't passed")
         return ret
     else:
-        print(f"MPI rank {mpi_rank} - root MPI thread, sanity pass, running main")
+        # print(f"MPI rank {mpi_rank} - root MPI thread, sanity pass, running main")
+        print("Sanity: \U0001F7E2")
         return main(cwd, mpi_comm, mpi_rank, mpi_size, 3)
 
 
@@ -277,11 +296,12 @@ def mpi_nonroot(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
         raise MPISanityError(f"MPI nonroot sanity doesn't passed, rank {mpi_rank}")
         return ret
     elif mpi_rank == 1:
-        # return stateWriter(cwd, mpi_comm, mpi_rank, mpi_size)
-        mpi_comm.gather((mpi_rank, "csvWriter"))
+        # mpi_comm.gather((mpi_rank, "csvWriter"))
+        mpi_comm.send(obj="csvWriter", dest=0, tag=MPI_TAGS.ONLINE)
         return MW.csvWriter(cwd / "rdata.csv", mpi_comm, mpi_rank, mpi_size)
     elif mpi_rank == 2:
-        mpi_comm.gather((mpi_rank, "ad_mpi_writer"))
+        # mpi_comm.gather((mpi_rank, "ad_mpi_writer"))
+        mpi_comm.send(obj="ad_mpi_writer", dest=0, tag=MPI_TAGS.ONLINE)
         return MW.ad_mpi_writer(cwd / "ntb.bp", mpi_comm, mpi_rank, mpi_size)
     else:
         return mpi_goto(cwd, mpi_comm, mpi_rank, mpi_size)

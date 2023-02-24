@@ -15,6 +15,15 @@ import csv
 
 import warnings
 import functools
+import sys, os
+
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
 MPIComm = Union[MPI.Intracomm, MPI.Intercomm]
 GatherResponseType = List[Tuple[str, int]]
@@ -37,6 +46,7 @@ class MPI_TAGS(int, Enum):
     DATA = 6
     SERVICE = 7
     ONE_WRITE = 8
+    ONLINE = 9
 
 
 def deprecated(func):
@@ -75,7 +85,10 @@ def base_sanity(mpi_size, mpi_rank, min):
     return 0
 
 
-def root_sanity(mpi_comm: MPIComm):
+def root_sanity(mpi_comm: MPIComm, no_print: bool = False):
+    # if no_print:
+    #     blockPrint()
+
     random_number = secrets.randbelow(round(time.time()))
     mpi_comm.bcast(random_number)
     print('Controller @ MPI Rank   0:  Input {}'.format(random_number))
@@ -111,6 +124,9 @@ def root_sanity(mpi_comm: MPIComm):
             f"Worker at MPI Rank {i}: Output {response_array[i][1]} is {result} (from {response_array[i][0]})")
 
         mpi_comm.send(obj=0, dest=i, tag=MPI_TAGS.SANITY)
+
+    # if no_print:
+    #     enablePrint()
     return 0
 
 
