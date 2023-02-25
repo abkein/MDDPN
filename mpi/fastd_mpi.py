@@ -8,6 +8,7 @@ import numpy as np
 import freud
 from mpiworks import MPIComm, MPI_TAGS
 from typing import Tuple
+import time
 
 warnings.simplefilter("error")
 
@@ -26,7 +27,10 @@ def asdf(points: np.ndarray, box: freud.box) -> np.ndarray:
     cl.compute(system, neighbors={'mode': 'ball',
                "r_min": 0, 'exclude_ii': True, "r_max": 1.5})
     cl_props = freud.cluster.ClusterProperties()
-    cl_props.compute((box, points), cl.cluster_idx)
+    # mda = time.time()
+    # cl_props.compute((box, points), cl.cluster_idx)
+    cl_props.compute(system, cl.cluster_idx)
+    # print(f"RRR: {time.time() - mda}")
     return cl_props.sizes
 
 
@@ -42,9 +46,9 @@ def clmatrix(data: np.ndarray, box: freud.box, N: int) -> np.ndarray:
     ar = asdf(data, box)
     unique, counts = np.unique(ar, return_counts=True)
     mat = np.zeros(N + 1, dtype=np.uint32)
-    for size, ctn in zip(unique, counts):
-        mat[size] = ctn
-    return np.array(mat[1:])
+    # for size, ctn in np.hstack([unique, counts]):
+    mat[unique] = counts
+    return mat[1:]
 
 
 def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
@@ -53,10 +57,21 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
     box = freud.box.Box.from_box(bdims)
     reader_rank = mpi_rank - 1
     trt_rank = mpi_rank + 1
+
+    # receiving_time = 0
+    # mtr = 0
+    # logic_time = 0
+    # sending_time = 0
+
     while True:
+
+        # start = time.time()
+
         step, sender, data = mpi_comm.recv(source=reader_rank, tag=MPI_TAGS.DATA)  # type: Tuple[int, int, np.ndarray]
         if sender != reader_rank:
             pass
+
+        # middle1 = time.time()
 
         data = scale2box(data, box)
         dist = clmatrix(data, box, N)
@@ -69,6 +84,9 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
         #         raise RuntimeError(rs)
 
         tpl = (step, dist)
+
+        # middle2 = time.time()
+
         mpi_comm.send(obj=tpl, dest=2, tag=MPI_TAGS.WRITE)
         mpi_comm.send(obj=tpl, dest=trt_rank, tag=MPI_TAGS.DATA)
 
@@ -76,12 +94,21 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
 
         mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
 
+        # end = time.time()
+
         if mpi_comm.iprobe(source=reader_rank, tag=MPI_TAGS.SERVICE) and not mpi_comm.iprobe(source=reader_rank, tag=MPI_TAGS.DATA):
             if mpi_comm.recv(source=reader_rank, tag=MPI_TAGS.SERVICE) == 1:
                 break
+
+        # receiving_time += middle1 - start
+        # logic_time += middle2 - middle1
+        # sending_time += end - middle2
+        # mtr += 1
+        # print(f"Proceeder: receiving: {receiving_time/mtr}, logic: {logic_time/mtr}, sending: {sending_time/mtr}")
+
     mpi_comm.send(obj=1, dest=trt_rank, tag=MPI_TAGS.SERVICE)
 
-    print("Process end.")
+    print(f"MPI rank {mpi_rank}, preceeder finished")
     return 0
 
 

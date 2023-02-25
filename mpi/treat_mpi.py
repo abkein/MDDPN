@@ -10,6 +10,7 @@ import pandas as pd
 import freud
 from mpiworks import MPI_TAGS, MPIComm
 from typing import Tuple, Union
+import time
 
 
 def mean_size(sizes: np.ndarray, dist: np.ndarray) -> float:
@@ -73,8 +74,18 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
     temptime = temperatures[0].to_numpy(dtype=np.uint64)
     temperatures = temperatures[1].to_numpy(dtype=np.float64)
 
+    # receiving_time = 0
+    # mtr = 0
+    # logic_time = 0
+    # sending_time = 0
+
     while True:
+
+        # start = time.time()
+
         step, dist = mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.DATA)  # type: Tuple[int, np.ndarray]
+
+        # middle1 = time.time()
 
         temp = temperatures[temptime == int(step * dis)]
         tow = np.zeros(9, dtype=np.float64)
@@ -88,13 +99,23 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
         tow[7] = temp
         tow[8] = step
 
+        # middle2 = time.time()
+
         mpi_comm.send(obj=tow, dest=1, tag=MPI_TAGS.WRITE)
 
         mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
+
+        # end = time.time()
 
         if mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.SERVICE) and not mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.DATA):
             if mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.SERVICE) == 1:
                 break
 
-    print("Treat end.")
+        # receiving_time += middle1 - start
+        # logic_time += middle2 - middle1
+        # sending_time += end - middle2
+        # mtr += 1
+        # print(f"Treater: receiving: {receiving_time/mtr}, logic: {logic_time/mtr}, sending: {sending_time/mtr}")
+
+    print(f"MPI rank {mpi_rank}, treater finished")
     return 0

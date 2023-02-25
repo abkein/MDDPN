@@ -61,15 +61,17 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
             total_steps = reader.steps()
             i = 0
             for step in reader:
-                # while True:
                 if i < storages_[storage]["begin"]:
                     i += 1
                     continue
                 arr = step.read('atoms')
-                arr = arr[:, 2:5]
+                arr = arr[:, 2:5].astype(dtype=np.float32)
                 tpl = (worker_counter + ino, mpi_rank, arr)
+
                 mpi_comm.send(obj=tpl, dest=proceeder_rank, tag=MPI_TAGS.DATA)
                 worker_counter += 1
+                mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.SERVICE)
+
                 if i == storages_[storage]["end"] - 1:
                     break
                 i += 1
@@ -78,12 +80,11 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
                 while worker_counter - sync_value > 50:
                     time.sleep(0.5)
 
-                mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.SERVICE)
-
                 if step.current_step() == total_steps - 1:
                     break
 
     mpi_comm.send(obj=1, dest=proceeder_rank, tag=MPI_TAGS.SERVICE)
+    print(f"MPI rank {mpi_rank}, reader finished")
     return 0
 
 
@@ -126,7 +127,7 @@ def storage_rsolve(cwd: Path, storages: Dict[str, Union[int, str]]) -> Dict[str,
 
 def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[int, Dict[str, int]]]]:
     ll = sum(list(storages.values()))
-    dp = np.linspace(0, ll - 1, 3 + 1, dtype=int)
+    dp = np.linspace(0, ll - 1, mm + 1, dtype=int)
     bp = dp
     dp = dp[1:] - dp[:-1]
     dp = np.vstack([bp[:-1].astype(dtype=int),
@@ -137,7 +138,9 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
         st[storage] = value
     ls = 0
     b_r = 0
-    for i, (begin, end) in enumerate(dp.T):
+    for i, (begin_, end_) in enumerate(dp.T):
+        begin = int(begin_)
+        end = int(end_)
         beg = begin - b_r + ls
         en = end - begin
         wd[str(i)] = {"no": begin, "storages": {}}
@@ -194,6 +197,8 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         print(f"Thread num: {thread_num}")
         thread_len = 3
         wd = distribute(storages, thread_num)
+        print("Distribution")
+        print(json.dumps(wd, indent=4))
 
         for i in range(thread_num):
             for j in range(thread_len):
@@ -275,6 +280,7 @@ def mpi_goto(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
     elif mrole == Role.kill:
         # mpi_comm.gather((mpi_rank, "killed"))
         mpi_comm.send(obj="killed", dest=0, tag=MPI_TAGS.ONLINE)
+        mpi_comm.Barrier()
         return 0
 
 
