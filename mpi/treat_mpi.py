@@ -1,8 +1,8 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# First created by Egor Perevoshchikov at 2022-10-29 15:41.
-# Last-update: 2023-02-19 19:23:27
+# Created: 2018/02/04 12:24:41
+# Last modified: 2023/03/06 20:45:12
 
 import numpy as np
 from pathlib import Path
@@ -34,17 +34,27 @@ def nd(sizes: np.ndarray, dist: np.ndarray, volume: float, kmin: int) -> float:
 
 
 def nl(T: float) -> float:
-    if T <= 0.6:
-        return 0.896
-    else:
-        return -0.9566 * np.exp(0.601 * T) + 2.25316
+    # if T <= 0.6:
+    #     return 0.896
+    # else:
+    #     return -0.9566 * np.exp(0.601 * T) + 2.25316
+    return 0.9357815789568936*np.exp(-0.4942307357685498*T**(3.217571917919023))
 
 
 def sigma(T: float) -> float:
-    if T <= 0.6:
-        return -2.525 * T + 2.84017
-    else:
-        return -5.086 * T + 4.21614
+    # if T <= 0.6:
+    #     return -2.525 * T + 2.84017
+    # else:
+    #     return -5.086 * T + 4.21614
+    return -4.11425 * T + 3.56286
+
+
+def is_iter(arr) -> bool:
+    try:
+        iter(arr)
+        return True
+    except Exception:
+        return False
 
 
 def nvs(sizes: np.ndarray, dist: np.ndarray, volume: float, kmin: int, T: float) -> Union[float, None]:
@@ -74,48 +84,38 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
     temptime = temperatures[0].to_numpy(dtype=np.uint64)
     temperatures = temperatures[1].to_numpy(dtype=np.float64)
 
-    # receiving_time = 0
-    # mtr = 0
-    # logic_time = 0
-    # sending_time = 0
-
     while True:
-
-        # start = time.time()
-
         step, dist = mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.DATA)  # type: Tuple[int, np.ndarray]
 
-        # middle1 = time.time()
-
-        temp = temperatures[temptime == int(step * dis)]
-        tow = np.zeros(9, dtype=np.float64)
-        tow[0] = step * dt * dis
-        tow[1] = mean_size(sizes, dist)
-        tow[2] = maxsize(sizes, dist)
-        tow[3] = xas(dist, N_atoms)
-        tow[4] = nvv(sizes, dist, volume, kmax)
-        tow[5] = nd(sizes, dist, volume, g)
-        tow[6] = nvs(sizes, dist, volume, kmax, temp)
-        tow[7] = temp
-        tow[8] = step
-
-        # middle2 = time.time()
+        try:
+            temp = temperatures[np.abs(temptime - int(step * dis)) <= 1]
+            if is_iter(temp):
+                temp = float(temp[0])
+            tow = np.zeros(10, dtype=np.float64)
+            tow[0] = round(step * dt * dis)
+            tow[1] = mean_size(sizes, dist)
+            tow[2] = maxsize(sizes, dist)
+            tow[3] = xas(dist, N_atoms)
+            tow[4] = nvv(sizes, dist, volume, kmax)
+            tow[5] = nd(sizes, dist, volume, g)
+            tow[6] = nvs(sizes, dist, volume, kmax, temp)
+            tow[7] = temp
+            tow[8] = step
+            tow[9] = len(dist[dist > 1])
+        except Exception as e:
+            etime = time.time()
+            eid = round(etime) * mpi_rank
+            print(f"{time.strftime('%d:%m:%Y %H:%M:%S', time.gmtime(etime))} MPI RANK: {mpi_rank}, treater. Handled exception {eid}:")
+            print(e)
+            print(f"END OF EXCEPTION {eid}")
+            tow = np.zeros(10, dtype=np.float64)
 
         mpi_comm.send(obj=tow, dest=1, tag=MPI_TAGS.WRITE)
-
-        mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
-
-        # end = time.time()
+        mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.STATE)
 
         if mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.SERVICE) and not mpi_comm.iprobe(source=proc_rank, tag=MPI_TAGS.DATA):
             if mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.SERVICE) == 1:
                 break
-
-        # receiving_time += middle1 - start
-        # logic_time += middle2 - middle1
-        # sending_time += end - middle2
-        # mtr += 1
-        # print(f"Treater: receiving: {receiving_time/mtr}, logic: {logic_time/mtr}, sending: {sending_time/mtr}")
 
     print(f"MPI rank {mpi_rank}, treater finished")
     return 0

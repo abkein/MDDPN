@@ -40,17 +40,19 @@ def nd(sizes, dist, volume, kmin):
 
 
 def nl(T):
-    if T <= 0.6:
-        return 0.896
-    else:
-        return -0.9566 * np.exp(0.601 * T) + 2.25316
+    # if T <= 0.6:
+    #     return 0.896
+    # else:
+    #     return -0.9566 * np.exp(0.601 * T) + 2.25316
+    return 0.9357815789568936*np.exp(-0.4942307357685498*T**(3.217571917919023))
 
 
 def sigma(T):
-    if T <= 0.6:
-        return -2.525 * T + 2.84017
-    else:
-        return -5.086 * T + 4.21614
+    # if T <= 0.6:
+    #     return -2.525 * T + 2.84017
+    # else:
+    #     return -5.086 * T + 4.21614
+    return -4.11425 * T + 3.56286
 
 
 def nvs(sizes, dist, volume, kmin, T):
@@ -123,6 +125,14 @@ def treat(tdir, savefile, kmax=10, g=19, dt=0.005, dis=1000):
     print("Treat end.")
 
 
+def is_iter(arr) -> bool:
+    try:
+        iter(arr)
+        return True
+    except Exception:
+        return False
+
+
 def treat_async(input, cwd, savefile, stateQue, kmax=10, g=19, dt=0.005, dis=1000):
     with open(cwd / 'data.json', 'r') as fp:
         son = json.load(fp)
@@ -148,6 +158,8 @@ def treat_async(input, cwd, savefile, stateQue, kmax=10, g=19, dt=0.005, dis=100
         dist, step = data
 
         temp = temperatures[temptime == int(step * dis)]
+        if is_iter(temp):
+            temp = float(temp[0])
         tow = np.zeros(8, dtype=np.float64)
         tow[0] = step * dt * dis
         tow[1] = mean_size(sizes, dist)

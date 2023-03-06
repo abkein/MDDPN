@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-# First created by Egor Perevoshchikov at 2022-10-29 15:41.
-# Last-update: 2023-02-19 19:22:35
+# Created: 2018/02/04 12:24:41
+# Last modified: 2023/03/06 01:09:30
 
 import time
 import secrets
@@ -39,13 +39,13 @@ class MPISanityError(RuntimeError):
 class MPI_TAGS(int, Enum):
     SANITY = 0
     DISTRIBUTION = 1
-    NEIGHBORS = 2
+    COMMAND = 2
     SERV_DATA = 3
     TO_ACCEPT = 4
     WRITE = 5
     DATA = 6
     SERVICE = 7
-    ONE_WRITE = 8
+    STATE = 8
     ONLINE = 9
 
 
@@ -179,7 +179,7 @@ def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
                     step, arr = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: Tuple[int, np.ndarray]
                     adout.write("step", np.array(step))
                     adout.write("dist", arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)
-                    mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.SERVICE)
+                    mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.STATE)
 
 
 def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
@@ -190,10 +190,14 @@ def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
 
     with open(file, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
+        # fl = True
+        # sfl = True
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
                     data = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: np.ndarray
                     writer.writerow(data)
                     ctr += 1
-                    mpi_comm.send(obj=ctr, dest=0, tag=MPI_TAGS.SERVICE)
+                    mpi_comm.send(obj=ctr, dest=0, tag=MPI_TAGS.STATE)
+                    # print(f"MPI RANK {mpi_rank}, csvWriter, step {ctr}")
+                    csv_file.flush()

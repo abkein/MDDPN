@@ -1,9 +1,9 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# First created by Egor Perevoshchikov at 2022-10-29 15:41.
-# Last-update: 2023-02-19 19:23:11
-#
+# Created: 2018/02/04 12:24:41
+# Last modified: 2023/03/06 01:22:07
+
 
 from math import floor
 from pathlib import Path
@@ -26,6 +26,8 @@ import json
 from datetime import datetime
 from enum import Enum
 
+
+f_ver = '0.0.0.1'
 
 # prdata_file = "ntb.bp"
 data_file = 'data.json'
@@ -52,16 +54,16 @@ class Role(Enum):
 
 def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
     mpi_comm.Barrier()
-    ino, storages_ = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, Dict[str, int]]
+    ino, storages = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, Dict[str, int]]
     proceeder_rank = mpi_rank + 1
     worker_counter = 0
     sync_value = 0
-    for storage in storages_:
+    for storage in storages:
         with adios2.open(str(cwd / storage), 'r') as reader:
             total_steps = reader.steps()
             i = 0
             for step in reader:
-                if i < storages_[storage]["begin"]:
+                if i < storages[storage]["begin"]:
                     i += 1
                     continue
                 arr = step.read('atoms')
@@ -70,9 +72,10 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
 
                 mpi_comm.send(obj=tpl, dest=proceeder_rank, tag=MPI_TAGS.DATA)
                 worker_counter += 1
-                mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.SERVICE)
+                mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.STATE)
+                # print(f"MPI RANK {mpi_rank}, reader, {worker_counter}")
 
-                if i == storages_[storage]["end"] - 1:
+                if i == storages[storage]["end"] - 1:
                     break
                 i += 1
                 while mpi_comm.iprobe(source=proceeder_rank, tag=MPI_TAGS.SERVICE):
@@ -209,17 +212,6 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         mpi_comm.send(obj=[nv + 1 + thread_len*i for i in range(thread_num)], dest=2, tag=MPI_TAGS.TO_ACCEPT)
         mpi_comm.send(obj=[nv + 2 + thread_len*i for i in range(thread_num)], dest=1, tag=MPI_TAGS.TO_ACCEPT)
 
-        # for i in range(thread_num):
-        #     for j in range(3):
-        #         if j == 0:
-        #             sd = nv + i + j + 1
-        #         elif j == 1:
-        #             sd = (nv + i + j - 1, nv + i + j + 1)
-        #         elif j == 2:
-        #             sd = nv + i + j - 1
-        #         mpi_comm.send(obj=sd, dest=i + j + nv,
-        #                       tag=MPI_TAGS.NEIGHBORS)
-
         N, bdims = bearbeit(cwd, storages)
 
         for i in range(thread_num):
@@ -255,12 +247,32 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         #     states[str(i)]['name'] = response_array[i][1]
 
         mpi_comm.Barrier()
-        while True:
+        print(f"MPI rank {mpi_rank}, second barrier off")
+        completed_threads = []
+        fl = True
+        start = time.time()
+        while fl:
             for i in range(1, mpi_size):
-                if mpi_comm.iprobe(source=i, tag=MPI_TAGS.SERVICE):
-                    states[str(i)]['state'] = mpi_comm.recv(source=i, tag=MPI_TAGS.SERVICE)
-            with open(cwd / "st.json", "w") as fp:
-                json.dump(states, fp)
+                if mpi_comm.iprobe(source=i, tag=MPI_TAGS.STATE):
+                    tstate = mpi_comm.recv(source=i, tag=MPI_TAGS.STATE)
+                    if tstate == -1:
+                        completed_threads.append(i)
+                        print(f"MPI ROOT, rank {i} has completed")
+                        if len(completed_threads) == mpi_size - 3:
+                            with open(cwd / "st.json", "w") as fp:
+                                json.dump(states, fp)
+                            fl = False
+                            break
+                    else:
+                        states[str(i)]['state'] = tstate
+                if time.time() - start > 20:
+                    with open(cwd / "st.json", "w") as fp:
+                        json.dump(states, fp)
+                    start = time.time()
+        print("MPI ROOT: exiting...")
+        mpi_comm.send(obj=-1, dest=1, tag=MPI_TAGS.COMMAND)
+        mpi_comm.send(obj=-1, dest=2, tag=MPI_TAGS.COMMAND)
+        return 0
 
 
 def mpi_goto(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):

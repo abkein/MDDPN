@@ -316,7 +316,10 @@ def restart(cwd, args):
         state = json.load(f)
     if states(state[state_field]) != states.started and states(state[state_field]) != states.restarted:
         raise LogicError("Folder isn't properly initialized")
-    last_file = find_last(cwd)
+    if args.step is None:
+        last_file = find_last(cwd)
+    else:
+        last_file = args.step
     if last_file >= max_step(state) - 1:
         return 0
     if states(state[state_field]) == states.started:
@@ -329,9 +332,10 @@ def restart(cwd, args):
         state[restart_field] = rest_cnt
     # gen_restarts(cwd, state['ps']['run_labels'])
     current_label = ""
-    for i, label in enumerate(state['run_labels']):
-        if last_file > state['run_labels'][label]["begin_step"]:
-            if last_file < state['run_labels'][label]["end_step"] - 1:
+    rlabels = state['run_labels']
+    for label in rlabels:
+        if last_file > rlabels[label]["begin_step"]:
+            if last_file < rlabels[label]["end_step"] - 1:
                 current_label = label
                 break
     out_file, dump_file = gen_restart(cwd, current_label, last_file, state)
@@ -342,8 +346,7 @@ def restart(cwd, args):
             # print(current_label, label_c, str(
             #     int(state["run_labels"][label_c]["runs"])))
             if '0' in state["run_labels"][label_c]:
-                state["run_labels"][label_c][str(
-                    int(state["run_labels"][label_c]["runs"]))]["last_step"] = last_file
+                state["run_labels"][label_c][str(int(state["run_labels"][label_c]["runs"]))]["last_step"] = last_file
                 break
         elif label_c == current_label:
             fl = True
@@ -416,13 +419,11 @@ if __name__ == '__main__':
     parser.add_argument('--debug', action='store_true',
                         help='Debug, prints only parsed arguments')
 
-    sub_parsers = parser.add_subparsers(
-        help='sub-command help', dest="command")
+    sub_parsers = parser.add_subparsers(help='sub-command help', dest="command")
 
-    parser_init = sub_parsers.add_parser(
-        'init', help='Initialize directory')
-    parser_init.add_argument(
-        '--min', action="store_true", help='Don\'t create in. files')
+    parser_init = sub_parsers.add_parser('init', help='Initialize directory')
+    parser_init.add_argument('--min', action="store_true",
+                             help='Don\'t create in. files')
     parser_init.add_argument("-p", '--params', action="store", type=str,
                              help='Obtain simulation parameters from command-line')
     parser_init.add_argument("-f", '--file', action="store_true",
@@ -439,15 +440,14 @@ if __name__ == '__main__':
     parser_run.add_argument(
         '--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
 
-    parser_restart = sub_parsers.add_parser(
-        'restart', help='Generate restart file and run it')
-    parser_restart.add_argument(
-        '--gen', action='store_false', help='Don\'t run restart')
+    parser_restart = sub_parsers.add_parser('restart', help='Generate restart file and run it')
+    parser_restart.add_argument('--gen', action='store_false', help='Don\'t run restart')
+    parser_restart.add_argument('-s', '--step', action='store', type=int,
+                                help='From which step do the restart')
     parser_restart.add_argument(
         '--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
 
-    parser_end = sub_parsers.add_parser(
-        'end', help='Post-processing')
+    parser_end = sub_parsers.add_parser('end', help='Post-processing')
 
     args = parser.parse_args()
     cwd = Path.cwd()
