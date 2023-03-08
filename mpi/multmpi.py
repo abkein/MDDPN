@@ -2,7 +2,10 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/06 01:22:07
+# Last modified: 2023/03/08 09:09:49
+
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 
 from math import floor
@@ -27,22 +30,7 @@ from datetime import datetime
 from enum import Enum
 
 
-f_ver = '0.0.0.1'
-
-# prdata_file = "ntb.bp"
 data_file = 'data.json'
-
-
-# def stateWriter(mpi_comm: MPIComm, mpi_rank, mpi_size):
-#     savefile = "pstates.json"
-#     to_write = {}
-#     while True:
-#         data = stateQue.get()
-#         if isinstance(data, fd.SpecialObject):
-#             break
-#         to_write[data[0]] = data[1]
-#         with open(cwd / savefile, 'w') as fp:
-#             json.dump(to_write, fp)
 
 
 class Role(Enum):
@@ -59,7 +47,7 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
     worker_counter = 0
     sync_value = 0
     for storage in storages:
-        with adios2.open(str(cwd / storage), 'r') as reader:
+        with adios2.open(str(cwd / storage), 'r', mpi_comm) as reader:
             total_steps = reader.steps()
             i = 0
             for step in reader:
@@ -140,31 +128,22 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
     for storage, value in storages.items():
         st[storage] = value
     ls = 0
-    b_r = 0
     for i, (begin_, end_) in enumerate(dp.T):
         begin = int(begin_)
         end = int(end_)
-        beg = begin - b_r + ls
+        beg = 0 + ls
         en = end - begin
         wd[str(i)] = {"no": begin, "storages": {}}
-        # wd[str(i)]["storages"] = {}
-        for storage in list(st):
-            value = st[storage]
+        for storage, value in st.items():
             if en >= value:
-                wd[str(i)]["storages"][storage] = {
-                    "begin": beg, "end": value + ls}
-                if ls != 0:
-                    beg -= ls
-                    ls = 0
-                b_r += value
+                wd[str(i)]["storages"][storage] = {"begin": beg, "end": value}
                 en -= value
+                ls = 0
                 del st[storage]
             elif en < value:
-                wd[str(i)]["storages"][storage] = {
-                    "begin": beg, "end": en + ls}
-                b_r += en
+                wd[str(i)]["storages"][storage] = {"begin": beg, "end": en}
                 st[storage] -= en
-                ls = en
+                ls += en
                 break
     return wd
 

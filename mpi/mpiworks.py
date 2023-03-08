@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/06 01:09:30
+# Last modified: 2023/03/07 11:29:49
+
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
 
 import time
 import secrets

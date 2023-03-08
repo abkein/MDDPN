@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/06 20:43:39
+# Last modified: 2023/03/07 11:29:48
+
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
 
 import warnings
 import numpy as np

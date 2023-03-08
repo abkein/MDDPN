@@ -2,7 +2,11 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/06 20:45:12
+# Last modified: 2023/03/07 11:29:47
+
+import os
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
+
 
 import numpy as np
 from pathlib import Path
