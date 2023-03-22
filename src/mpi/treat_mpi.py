@@ -2,12 +2,12 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/22 01:11:16
+# Last modified: 2023/03/22 22:55:21
 
 import os
 import time
 from pathlib import Path
-from typing import Literal, Union, Iterable
+from typing import Literal
 
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -20,14 +20,6 @@ import pandas as pd
 
 from .mpiworks import MPI_TAGS, MPIComm
 from ..core import calc
-
-
-def is_iter(arr: Union[Iterable[float], float]) -> bool:
-    try:
-        iter(arr)  # type: ignore
-        return True
-    except Exception:
-        return False
 
 
 def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
@@ -55,10 +47,8 @@ def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
         step, dist = mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.DATA)
 
         try:
-            temp = temperatures[np.abs(temptime - int(step * dis)) <= 1]
-            if is_iter(temp):
-                temp = float(temp[0])
-            tow = calc.get_row()
+            temp = temperatures[np.abs(temptime - int(step * dis)) <= 1][0]
+            tow = calc.get_row(step, sizes, dist, temp, N_atoms, kmax, g, volume, dt, dis)
         except Exception as e:
             etime = time.time()
             eid = round(etime) * mpi_rank
