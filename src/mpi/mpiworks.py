@@ -1,33 +1,35 @@
+#!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/07 11:29:49
+# Last modified: 2023/03/22 00:11:28
 
 import os
+import sys
+import csv
+import time
+import secrets
+from enum import Enum
+from pathlib import Path
+from typing import List, Literal, NoReturn, Tuple, Union
+
+
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 
-import time
-import secrets
-from typing import List, Tuple, Union, Dict
-from mpi4py import MPI
-from enum import Enum
 import adios2
-from pathlib import Path
 import numpy as np
-import csv
+from numpy import typing as npt
+from mpi4py import MPI
 
-import warnings
-import functools
-import sys, os
 
-# Disable
-def blockPrint():
+def blockPrint() -> None:
     sys.stdout = open(os.devnull, 'w')
 
-# Restore
-def enablePrint():
+
+def enablePrint() -> None:
     sys.stdout = sys.__stdout__
+
 
 MPIComm = Union[MPI.Intracomm, MPI.Intercomm]
 GatherResponseType = List[Tuple[str, int]]
@@ -35,9 +37,6 @@ GatherResponseType = List[Tuple[str, int]]
 
 class MPISanityError(RuntimeError):
     pass
-
-# class SpecialObject():
-#     pass
 
 
 class MPI_TAGS(int, Enum):
@@ -53,22 +52,7 @@ class MPI_TAGS(int, Enum):
     ONLINE = 9
 
 
-def deprecated(func):
-    """This is a decorator which can be used to mark functions
-    as deprecated. It will result in a warning being emitted
-    when the function is used."""
-    @functools.wraps(func)
-    def new_func(*args, **kwargs):
-        warnings.simplefilter('always', DeprecationWarning)  # turn off filter
-        warnings.warn("Call to deprecated function {}.".format(func.__name__),
-                      category=DeprecationWarning,
-                      stacklevel=2)
-        warnings.simplefilter('default', DeprecationWarning)  # reset filter
-        return func(*args, **kwargs)
-    return new_func
-
-
-def base_sanity(mpi_size, mpi_rank, min):
+def base_sanity(mpi_size: int, mpi_rank: int, min: int) -> Literal[0]:
     if mpi_size == 1:
         print('You are running an MPI program with only one slot/task!')
         print('Are you using `mpirun` (or `srun` when in SLURM)?')
@@ -89,34 +73,27 @@ def base_sanity(mpi_size, mpi_rank, min):
     return 0
 
 
-def root_sanity(mpi_comm: MPIComm, no_print: bool = False):
-    # if no_print:
-    #     blockPrint()
-
+def root_sanity(mpi_comm: MPIComm) -> Literal[1, 0]:
     random_number = secrets.randbelow(round(time.time()))
     mpi_comm.bcast(random_number)
     print('Controller @ MPI Rank   0:  Input {}'.format(random_number))
 
-    response_array = mpi_comm.gather(None)  # type: GatherResponseType
+    response_array: GatherResponseType = mpi_comm.gather(None)  # type: ignore
 
-    mpi_size = mpi_comm.Get_size()
+    mpi_size: int = mpi_comm.Get_size()
     if len(response_array) != mpi_size:
-        print(
-            f"ERROR!  The MPI world has {mpi_size} members, but we only gathered {len(response_array)}!")
+        print(f"ERROR!  The MPI world has {mpi_size} members, but we only gathered {len(response_array)}!")
         return 1
 
     for i in range(1, mpi_size):
         if len(response_array[i]) != 2:
-            print(
-                f"WARNING!  MPI rank {i} sent a mis-sized ({len(response_array[i])}) tuple!")
+            print(f"WARNING!  MPI rank {i} sent a mis-sized ({len(response_array[i])}) tuple!")
             continue
         if type(response_array[i][0]) is not str:
-            print(
-                f"WARNING!  MPI rank {i} sent a tuple with a {str(type(response_array[i][0]))} instead of a str!")
+            print(f"WARNING!  MPI rank {i} sent a tuple with a {str(type(response_array[i][0]))} instead of a str!")
             continue
         if type(response_array[i][1]) is not int:
-            print(
-                f"WARNING!  MPI rank {i} sent a tuple with a {str(type(response_array[i][1]))} instead of an int!")
+            print(f"WARNING!  MPI rank {i} sent a tuple with a {str(type(response_array[i][1]))} instead of an int!")
             continue
 
         if random_number + i == response_array[i][1]:
@@ -124,20 +101,17 @@ def root_sanity(mpi_comm: MPIComm, no_print: bool = False):
         else:
             result = 'BAD'
 
-        print(
-            f"Worker at MPI Rank {i}: Output {response_array[i][1]} is {result} (from {response_array[i][0]})")
+        print(f"Worker at MPI Rank {i}: Output {response_array[i][1]} is {result} (from {response_array[i][0]})")
 
         mpi_comm.send(obj=0, dest=i, tag=MPI_TAGS.SANITY)
 
-    # if no_print:
-    #     enablePrint()
     return 0
 
 
-def nonroot_sanity(mpi_comm: MPIComm):
-    mpi_rank = mpi_comm.Get_rank()
+def nonroot_sanity(mpi_comm: MPIComm) -> Literal[1, 0]:
+    mpi_rank: int = mpi_comm.Get_rank()
 
-    random_number = mpi_comm.bcast(None)  # type: int
+    random_number: int = mpi_comm.bcast(None)
 
     # Sanity check: Did we actually get an int?
     if type(random_number) is not int:
@@ -146,15 +120,15 @@ def nonroot_sanity(mpi_comm: MPIComm):
         return 1
 
     # Our response is the random number + our rank
-    response_number = random_number + mpi_rank
-    response = (
+    response_number: int = random_number + mpi_rank
+    response: tuple[str, int] = (
         MPI.Get_processor_name(),
         response_number,
     )
     mpi_comm.gather(response)
 
     def get_message(mpi_comm: MPIComm) -> Union[int, None]:
-        message = mpi_comm.recv(source=0, tag=MPI_TAGS.SANITY)  # type: int
+        message: int = mpi_comm.recv(source=0, tag=MPI_TAGS.SANITY)
         if type(message) is not int:
             print(
                 f"ERROR in MPI rank {mpi_rank}: Received a non-integer message!")
@@ -162,7 +136,7 @@ def nonroot_sanity(mpi_comm: MPIComm):
         else:
             return message
 
-    message = get_message(mpi_comm)
+    message: int | None = get_message(mpi_comm)
     while (message is not None) and (message != 0):
         mpi_comm.send(obj=int(message / 2), dest=0, tag=MPI_TAGS.SANITY)
         message = get_message(mpi_comm)
@@ -173,35 +147,38 @@ def nonroot_sanity(mpi_comm: MPIComm):
     return 0
 
 
-def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
+def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> NoReturn:
     mpi_comm.Barrier()
-    threads = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)  # type: List[int]
+    threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
     with adios2.open(str(file), 'w') as adout:  # type: ignore
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
-                    step, arr = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: Tuple[int, np.ndarray]
-                    adout.write("step", np.array(step))
-                    adout.write("dist", arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)
+                    step: int
+                    arr: npt.NDArray[np.float32]
+                    step, arr = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)
+                    adout.write("step", np.array(step))  # type: ignore
+                    adout.write("dist", arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)  # type: ignore
                     mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.STATE)
 
 
-def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
+def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> NoReturn:
     mpi_comm.Barrier()
-    threads = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)  # type: List[int]
+    threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
 
-    ctr = 0
+    ctr: int = 0
 
     with open(file, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
-        # fl = True
-        # sfl = True
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
-                    data = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)  # type: np.ndarray
+                    data: npt.NDArray[np.float32] = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)
                     writer.writerow(data)
                     ctr += 1
                     mpi_comm.send(obj=ctr, dest=0, tag=MPI_TAGS.STATE)
-                    # print(f"MPI RANK {mpi_rank}, csvWriter, step {ctr}")
                     csv_file.flush()
+
+
+if __name__ == "__main__":
+    pass

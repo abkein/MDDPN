@@ -2,32 +2,31 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/08 09:09:49
+# Last modified: 2023/03/22 01:06:57
 
 import os
+import time
+import json
+import argparse
+from enum import Enum
+from math import floor
+from pathlib import Path
+from datetime import datetime
+from typing import Dict, Literal, Union, Tuple
+
+
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 
-from math import floor
-from pathlib import Path
-from urllib import response
-from mpi4py import MPI
-import mpiworks as MW
-from mpiworks import MPIComm, MPI_TAGS, MPISanityError
-
-from typing import Dict, Union, Tuple, List
-
-import numpy as np
-# from multiprocessing import Process, Manager
 import adios2
-import freud
-import fastd_mpi as fd
-import treat_mpi as treat
-import time
-import argparse
-import json
-from datetime import datetime
-from enum import Enum
+import numpy as np
+from numpy import typing as npt
+from mpi4py import MPI
+
+from . import treat_mpi as treat
+from . import fastd_mpi as fd
+from . import mpiworks as MW
+from .mpiworks import MPIComm, MPI_TAGS, MPISanityError
 
 
 data_file = 'data.json'
@@ -40,38 +39,45 @@ class Role(Enum):
     kill = 3
 
 
-def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
+def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
     mpi_comm.Barrier()
-    ino, storages = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)  # type: Tuple[int, Dict[str, int]]
+    dasdictt: Dict[str, int | Dict[str, int]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+    ino: int = dasdictt["no"]  # type: ignore
+    storages: Dict[str, int] = dasdictt["storages"]  # type: ignore
     proceeder_rank = mpi_rank + 1
     worker_counter = 0
     sync_value = 0
+    print(f"MPI rank {mpi_rank}, reader, storages: {storages}")
+    storage: str
     for storage in storages:
-        with adios2.open(str(cwd / storage), 'r', mpi_comm) as reader:
+        with adios2.open(str(cwd / storage), 'r') as reader:  # type: ignore
             total_steps = reader.steps()
             i = 0
             for step in reader:
-                if i < storages[storage]["begin"]:
+                if i < storages[storage]["begin"]:  # type: ignore
                     i += 1
                     continue
                 arr = step.read('atoms')
                 arr = arr[:, 2:5].astype(dtype=np.float32)
                 tpl = (worker_counter + ino, mpi_rank, arr)
+                print(f"MPI rank {mpi_rank}, reader, {worker_counter}")
 
                 mpi_comm.send(obj=tpl, dest=proceeder_rank, tag=MPI_TAGS.DATA)
                 worker_counter += 1
                 mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.STATE)
                 # print(f"MPI RANK {mpi_rank}, reader, {worker_counter}")
 
-                if i == storages[storage]["end"] - 1:
+                if i == storages[storage]["end"] + storages[storage]["begin"] - 1:  # type: ignore
+                    print(f"MPI rank {mpi_rank}, reader, reached end of distribution, {storage, i, worker_counter}")
                     break
                 i += 1
                 while mpi_comm.iprobe(source=proceeder_rank, tag=MPI_TAGS.SERVICE):
-                    sync_value = mpi_comm.recv(source=proceeder_rank, tag=MPI_TAGS.SERVICE)  # type: int
+                    sync_value: int = mpi_comm.recv(source=proceeder_rank, tag=MPI_TAGS.SERVICE)
                 while worker_counter - sync_value > 50:
                     time.sleep(0.5)
 
                 if step.current_step() == total_steps - 1:
+                    print(f"MPI rank {mpi_rank}, reader, reached end of storage, {storage, i, worker_counter}")
                     break
 
     mpi_comm.send(obj=1, dest=proceeder_rank, tag=MPI_TAGS.SERVICE)
@@ -79,14 +85,14 @@ def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> None:
     return 0
 
 
-def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, np.ndarray]:
+def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.float32]]:
     storage = list(storages.keys())[0]
-    adin = adios2.open(str(cwd / storage), 'r')
+    adin = adios2.open(str(cwd / storage), 'r')  # type: ignore
 
-    N = int(adin.read('natoms'))  # type: int
-    Lx = adin.read('boxxhi')  # type: float
-    Ly = adin.read('boxyhi')  # type: float
-    Lz = adin.read('boxzhi')  # type: float
+    N = int(adin.read('natoms'))
+    Lx = float(adin.read('boxxhi'))
+    Ly = float(adin.read('boxyhi'))
+    Lz = float(adin.read('boxzhi'))
 
     adin.close()
 
@@ -101,7 +107,7 @@ def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, np.ndarray]:
 
 def storage_check(cwd: Path, storages: Dict[str, int]):
     for storage, end_step in storages.items():
-        with adios2.open(str(cwd / storage), 'r') as reader:
+        with adios2.open(str(cwd / storage), 'r') as reader:  # type: ignore
             total_steps = reader.steps()
             if end_step > total_steps:
                 raise RuntimeError(
@@ -111,9 +117,9 @@ def storage_check(cwd: Path, storages: Dict[str, int]):
 def storage_rsolve(cwd: Path, storages: Dict[str, Union[int, str]]) -> Dict[str, int]:
     for storage, end_step in storages.items():
         if end_step == "full":
-            with adios2.open(str(cwd / storage), 'r') as reader_c:
+            with adios2.open(str(cwd / storage), 'r') as reader_c:  # type: ignore
                 storages[storage] = reader_c.steps()
-    return storages
+    return storages  # type: ignore
 
 
 def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[int, Dict[str, int]]]]:
@@ -121,8 +127,7 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
     dp = np.linspace(0, ll - 1, mm + 1, dtype=int)
     bp = dp
     dp = dp[1:] - dp[:-1]
-    dp = np.vstack([bp[:-1].astype(dtype=int),
-                    np.cumsum(dp).astype(dtype=int)])
+    dp = np.vstack([bp[:-1].astype(dtype=int), np.cumsum(dp).astype(dtype=int)])
     wd = {}
     st = {}
     for storage, value in storages.items():
@@ -134,11 +139,13 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
         beg = 0 + ls
         en = end - begin
         wd[str(i)] = {"no": begin, "storages": {}}
-        for storage, value in st.items():
+        for storage in list(st):
+            value = st[storage]
             if en >= value:
                 wd[str(i)]["storages"][storage] = {"begin": beg, "end": value}
                 en -= value
                 ls = 0
+                beg = 0
                 del st[storage]
             elif en < value:
                 wd[str(i)]["storages"][storage] = {"begin": beg, "end": en}
@@ -178,7 +185,7 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         thread_num = floor((mpi_size - nv) / 3)
         print(f"Thread num: {thread_num}")
         thread_len = 3
-        wd = distribute(storages, thread_num)
+        wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(storages, thread_num)
         print("Distribution")
         print(json.dumps(wd, indent=4))
 
@@ -194,10 +201,10 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
         N, bdims = bearbeit(cwd, storages)
 
         for i in range(thread_num):
-            dasdict = wd[str(i)]
-            sn = int(dasdict["no"])
-            store = dasdict["storages"]
-            mpi_comm.send(obj=(sn, store), dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
+            # dasdict: Dict[str, int | Dict[str, int]] = wd[str(i)]
+            # sn = dasdict["no"]
+            # store = dasdict["storages"]
+            mpi_comm.send(obj=wd[str(i)], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
             mpi_comm.send(obj=(N, bdims), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
             tpl = (cwd, N, bdims, args.kmax, args.critical_size, args.timestep, args.dis)
             mpi_comm.send(obj=tpl, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
@@ -276,7 +283,7 @@ def mpi_goto(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
 
 
 def mpi_root(cwd: Path, mpi_comm: MPIComm, mpi_rank, mpi_size):
-    ret = MW.root_sanity(mpi_comm, no_print=True)
+    ret = MW.root_sanity(mpi_comm)
     if ret != 0:
         raise MPISanityError("MPI root sanity doesn't passed")
         return ret
