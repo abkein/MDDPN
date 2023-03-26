@@ -14,4 +14,3 @@ def is_iter(arr: Union[Iterable[float], float]) -> bool:
 
 if __name__ == "__main__":
     pass
-
