@@ -56,9 +56,11 @@ def get_row(step: int, sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint3
     tow[6] = len(dist[dist > 1])
     tow[7] = temp
     tow[8] = step
-    tow[9] = np.sum(dist[1:])
+    tow[9] = np.sum(dist[g-1:])
     return tow
 
 
 if __name__ == "__main__":
     pass
+
+# something

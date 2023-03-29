@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/23 00:29:34
+# Last modified: 2023/03/30 00:31:33
 
 import os
 import time
@@ -287,6 +287,3 @@ def mpi_wrap():
 if __name__ == "__main__":
     import sys
     sys.exit(mpi_wrap())
-
-else:
-    raise ImportError("Cannot be imported")

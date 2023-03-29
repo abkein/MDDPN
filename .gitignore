@@ -7,3 +7,6 @@ fd
 sync
 freud
 cpp
+psync.py
+rec_sync.sh
+launcher.py
