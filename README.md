@@ -1,2 +1,2 @@
 # MDDPN
-MDDPN stans for "Molecular Dynamics Data Processor for Nucleation"
+MDDPN stands for "Molecular Dynamics Data Processor for Nucleation"
