@@ -1,6 +1,13 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
+# Copyright (c) 2023 Perevoshchikov Egor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:00:52
+
 
 import numpy as np
 from numpy import typing as npt
@@ -14,7 +21,7 @@ def scale2box(points: npt.NDArray[np.float32], box: freud.box) -> npt.NDArray[np
     return points
 
 
-def clusters(points: npt.NDArray[np.float32], box: freud.box) -> npt.ArrayLike:
+def clusters(points: npt.NDArray[np.float32], box: freud.box) -> npt.NDArray[np.uint32]:
     points = box.wrap(points)
     system = freud.AABBQuery(box, points)
     cl = freud.cluster.Cluster()  # type: ignore

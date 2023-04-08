@@ -1,14 +1,15 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# First created by Egor Perevoshchikov at 2022-10-29 15:41.
-# Last-update: 2023-01-07 16:21:14
+# Copyright (c) 2023 Perevoshchikov Egor
 #
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:03:22
+
 
 from pathlib import Path
-# import sys
-# import os
-# import psutil
 
 import numpy as np
 from multiprocessing import Process, Manager

@@ -1,9 +1,14 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
-# First created by Egor Perevoshchikov at 2022-10-29 15:41.
-# Last-update: 2023-01-07 16:21:38
+# Copyright (c) 2023 Perevoshchikov Egor
 #
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:02:39
+
+
 import warnings
 import numpy as np
 import freud

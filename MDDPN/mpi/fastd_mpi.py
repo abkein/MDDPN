@@ -1,8 +1,13 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/22 00:45:32
+# Copyright (c) 2023 Perevoshchikov Egor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:01:25
+
 
 import os
 import warnings
@@ -26,7 +31,7 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
     N: int
     bdims: npt.NDArray[np.float32]
     N, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
-    box = freud.box.Box.from_box(bdims)
+    box: freud.box = freud.box.Box.from_box(bdims)
     reader_rank = mpi_rank - 1
     trt_rank = mpi_rank + 1
 
@@ -38,7 +43,7 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
         if sender != reader_rank:
             pass
 
-        dist = get_dist(data, box, N)
+        dist = get_dist(data, N, box)
 
         tpl = (step, dist)
 

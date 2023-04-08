@@ -1,8 +1,13 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/30 00:31:33
+# Copyright (c) 2023 Perevoshchikov Egor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:01:40
+
 
 import os
 import time
@@ -18,7 +23,7 @@ from typing import Dict, Union, Tuple
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 
-import adios2
+from . import adios2
 import numpy as np
 from numpy import typing as npt
 from mpi4py import MPI

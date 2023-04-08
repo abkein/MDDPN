@@ -1,8 +1,13 @@
 #!/usr/bin/env python3.8
 # -*- coding: utf-8 -*-
 
-# Created: 2018/02/04 12:24:41
-# Last modified: 2023/03/23 00:15:30
+# Copyright (c) 2023 Perevoshchikov Egor
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
+# Last modified: 08-04-2023 15:01:52
+
 
 import os
 import time
