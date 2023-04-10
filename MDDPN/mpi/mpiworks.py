@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-04-2023 15:01:32
+# Last modified: 10-04-2023 23:21:54
 
 
 import os
@@ -55,6 +55,9 @@ class MPI_TAGS(int, Enum):
     SERVICE = 7
     STATE = 8
     ONLINE = 9
+    SERV_DATA_1 = 10
+    SERV_DATA_2 = 11
+    SERV_DATA_3 = 12
 
 
 def base_sanity(mpi_size: int, mpi_rank: int, min: int) -> Literal[0]:

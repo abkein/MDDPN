@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-04-2023 15:01:25
+# Last modified: 11-04-2023 01:19:32
 
 
 import os
@@ -31,7 +31,7 @@ def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
     N: int
     bdims: npt.NDArray[np.float32]
     N, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
-    box: freud.box = freud.box.Box.from_box(bdims)
+    box = freud.box.Box.from_box(bdims)
     reader_rank = mpi_rank - 1
     trt_rank = mpi_rank + 1
 

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-04-2023 15:03:38
+# Last modified: 10-04-2023 20:05:25
 
 
 # TODO:
@@ -406,6 +406,17 @@ def end(cwd, args):
         json.dump(state, f)
 
 
+def com_set(cwd: Path, args):
+    file = cwd / args.file
+    if not file.exists():
+        raise FileNotFoundError(f"There is no file {file.as_posix()}")
+    with file.open('r') as f:
+        fp = json.load(f)
+    fp[args.variable] = args.value
+    with file.open('w') as f:
+        json.dump(fp, f)
+
+
 def main(cwd, args):
     # print("PWD: ", Path(".").resolve())
     if args.debug:
@@ -419,7 +430,12 @@ def main(cwd, args):
         elif args.command == 'restart':
             restart(cwd, args)
         elif args.command == 'end':
+            raise NotImplementedError("Don't use it until it fixed")
             end(cwd, args)
+        elif args.command == 'end':
+            com_set(cwd, args)
+        else:
+            raise RuntimeError(f"There is no such command as {args.command}")
 
 
 if __name__ == '__main__':
@@ -442,6 +458,14 @@ if __name__ == '__main__':
     #     help='sub-command help', dest="init_min")
     # sub_parser_init = init_sub_parsers.add_parser(
     #     'min', help='Initialize directory')
+
+    parser_set = sub_parsers.add_parser('set', help='Set variable in config json file')
+    parser_set.add_argument('file', action="store", type=str,
+                            help='File in which set the variable')
+    parser_set.add_argument('variable', action="store", type=str,
+                            help='The variable to set')
+    parser_set.add_argument('value', action="store", type=float,
+                            help='Value of variable')
 
     parser_run = sub_parsers.add_parser(
         'run', help='Run LAMMPS simulation')
