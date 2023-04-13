@@ -6,11 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 20:43:10
+# Last modified: 13-04-2023 23:28:15
 
 
 # TODO:
 # preparing steps for every label
+# add description in argument parser
 
 
 import argparse
@@ -19,7 +20,7 @@ from pathlib import Path
 from .init import init
 from .run import run, restart
 from .post_process import end
-from .utils import com_set
+from .utils import com_set, load_state
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
@@ -27,20 +28,21 @@ def main_main(cwd: Path, args: argparse.Namespace):
         print("Envolved args:")
         print(args)
         return 0
+    elif args.command == 'init':
+        return init(cwd, args)
     else:
-        if args.command == 'init':
-            return init(cwd, args)
-        elif args.command == 'run':
-            return run(cwd, args)
-        elif args.command == 'restart':
-            return restart(cwd, args)
-        elif args.command == 'end':
-            # raise NotImplementedError("Don't use it until it fixed")
-            return end(cwd, args)
-        elif args.command == 'end':
-            return com_set(cwd, args)
-        else:
-            raise RuntimeError(f"There is no such command as {args.command}")
+        with load_state(cwd) as state:
+            if args.command == 'run':
+                state = run(cwd, state, args)
+            elif args.command == 'restart':
+                state = restart(cwd, state, args)
+            elif args.command == 'end':
+                # raise NotImplementedError("Don't use it until it fixed")
+                return end(cwd, args)
+            elif args.command == 'set':
+                return com_set(cwd, args)
+            else:
+                raise RuntimeError(f"There is no such command as {args.command}")
 
 
 def main():
@@ -59,10 +61,6 @@ def main():
                              help='Obtain simulation parameters from file')
     parser_init.add_argument("-fn", '--fname', action="store",
                              help='Specify file to get parameters from')
-    # init_sub_parsers = parser_init.add_subparsers(
-    #     help='sub-command help', dest="init_min")
-    # sub_parser_init = init_sub_parsers.add_parser(
-    #     'min', help='Initialize directory')
 
     parser_set = sub_parsers.add_parser('set', help='Set variable in config json file')
     parser_set.add_argument('file', action="store", type=str,

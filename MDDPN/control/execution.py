@@ -6,31 +6,32 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 20:34:59
+# Last modified: 13-04-2023 23:26:14
 
+import argparse
 from pathlib import Path
 import re
 import shlex
 import subprocess as sb
-from typing import List
+from typing import List, Dict
 
-from .constants import default_job_name, sbatch_nodes, sbatch_part, sbatch_tasks_pn, lammps_exec, MDDPN_exec, sbatch_processing_node_count, sbatch_processing_part
+from . import constants as cs
 
 
-def run_polling(cwd, args, sb_jobid):
+def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
     every = 5
-    cmd = f"polling.py --jobid {sb_jobid} --every {every} '{str(cwd)}'"
+    cmd = f"polling.py --jobid {sb_jobid} --every {every} '{cwd.as_posix()}'"
     cmds = shlex.split(cmd)
-    p = sb.Popen(cmds, start_new_session=True)
+    sb.Popen(cmds, start_new_session=True)
 
 
-def perform_run(cwd, in_file_name, state):
-    sldir = Path(state["slurm_directory"])
-    tdir = sldir / str(state["run_counter"])
+def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
+    sldir = Path(state[cs.Fslurm_directory_field])
+    tdir = sldir / str(state[cs.Frun_counter])
     tdir.mkdir(parents=True, exist_ok=True)
-    state["run_counter"] += 1
+    state[cs.Frun_counter] += 1
 
-    jname = default_job_name
+    jname = cs.default_job_name
 
     job_file = tdir / f"{jname}.job"
     job_file.touch()
@@ -47,11 +48,10 @@ def perform_run(cwd, in_file_name, state):
         fh.writelines("#SBATCH --mail-user=perevoshchikyy@mpei.ru\n")
         fh.writelines("#SBATCH --begin=now\n")
 
-        fh.writelines(f"#SBATCH --nodes={sbatch_nodes}\n")
-        fh.writelines(f"#SBATCH --ntasks-per-node={sbatch_tasks_pn}\n")
-        fh.writelines(f"#SBATCH --partition={sbatch_part}\n")
-        fh.writelines(
-            f"srun -u {lammps_exec} -in {in_file_name}")
+        fh.writelines(f"#SBATCH --nodes={cs.sbatch_nodes}\n")
+        fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
+        fh.writelines(f"#SBATCH --partition={cs.sbatch_part}\n")
+        fh.writelines(f"srun -u {cs.lammps_exec} -in {in_file_name.as_posix()}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')
@@ -66,11 +66,10 @@ def perform_run(cwd, in_file_name, state):
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict):
-    sldir = Path(state["slurm_directory"])
-    tdir = sldir / "data_processing"
+def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict) -> int:
+    sldir = Path(state[cs.Fslurm_directory_field])
+    tdir = sldir / cs.data_processing_folder
     tdir.mkdir(parents=True, exist_ok=True)
-    # state["run_counter"] += 1
 
     jname = "MDDPN"
 
@@ -89,11 +88,11 @@ def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict):
         fh.writelines("#SBATCH --mail-user=perevoshchikyy@mpei.ru\n")
         fh.writelines("#SBATCH --begin=now\n")
 
-        fh.writelines(f"#SBATCH --nodes={sbatch_processing_node_count}\n")
-        fh.writelines(f"#SBATCH --ntasks-per-node={sbatch_tasks_pn}\n")
-        fh.writelines(f"#SBATCH --partition={sbatch_processing_part}\n")
+        fh.writelines(f"#SBATCH --nodes={cs.sbatch_processing_node_count}\n")
+        fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
+        fh.writelines(f"#SBATCH --partition={cs.sbatch_processing_part}\n")
         fh.writelines(
-            f"srun -u {MDDPN_exec} -k {params['k']} -g {params['g']} '{df}'")
+            f"srun -u {cs.MDDPN_exec} -k {params['k']} -g {params['g']} '{df}'")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

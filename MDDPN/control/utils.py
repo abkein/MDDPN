@@ -6,12 +6,15 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 20:39:18
+# Last modified: 13-04-2023 22:29:55
 
 import json
 import argparse
 from enum import Enum
 from pathlib import Path
+from contextlib import contextmanager
+
+from . import constants as cs
 
 
 class states(str, Enum):
@@ -38,3 +41,16 @@ def com_set(cwd: Path, args: argparse.Namespace):
     with file.open('w') as f:
         json.dump(fp, f)
     return 0
+
+
+@contextmanager
+def load_state(cwd):
+    if not (cwd / cs.state_file).exists():
+        raise FileNotFoundError(f"State file '{cs.state_file}' not found")
+    with (cwd / cs.state_file).open('r') as f:
+        state = json.load(f)
+    try:
+        yield state
+    finally:
+        with (cwd / cs.state_file).open('w') as f:
+            json.dump(state, f)
