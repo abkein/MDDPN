@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-04-2023 01:28:13
+# Last modified: 11-04-2023 21:09:21
 
 from pathlib import Path
 from typing import Dict
@@ -16,8 +16,8 @@ import pandas as pd
 import numpy as np
 from numpy import typing as npt
 import freud
-import adios2
 
+from . import adios2
 from .mpiworks import MPIComm, MPI_TAGS
 from ..core.distribution import get_dist
 from ..core import calc
@@ -70,7 +70,7 @@ def thread(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
 
                     stepnd = worker_counter + ino
 
-                    print(f"MPI rank {mpi_rank}, reader, {worker_counter}")
+                    # print(f"MPI rank {mpi_rank}, reader, {worker_counter}")
 
                     dist = get_dist(arr, N_atoms, box)
 

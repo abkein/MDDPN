@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 10-04-2023 20:28:39
+# Last modified: 13-04-2023 11:59:35
 
 # TODO:
 # Change parser description
@@ -32,7 +32,7 @@ def process(file: Path, xi: float, time_step: float, wevery: int, dT: float):
             sti: int = step.read("step")
             dist: npt.NDArray[np.uint16] = step.read("dist")
 
-            
+
 
             if step.current_step() == total_steps - 1:
                 break
@@ -43,7 +43,7 @@ if __name__ == "___main__":
         description='CHANGEME.')
     parser.add_argument('--debug', action='store_true',
                         help='Debug, prints only parsed arguments')
-    parser.add_argument('file', type=str, required=True,
+    parser.add_argument('fileregex', type=str, required=True,
                         help='ADIOS2 file of cluster distribution matrix')
     parser.add_argument('--dT', type=float, default=0.08,
                         help='???')
@@ -56,5 +56,9 @@ if __name__ == "___main__":
     cwd = Path.cwd()
     with open(cwd / "data.json", 'r') as f:
         fp = json.load(f)
+
+    files = []
+    for file in cwd.iterdir()
+
 
     process(cwd / "ntb.bp", fp['xi'], fp['dt'], fp['every'], args.dT)

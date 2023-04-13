@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-04-2023 01:14:59
+# Last modified: 11-04-2023 21:37:18
 
 
 import os
@@ -76,12 +76,14 @@ def storage_check(cwd: Path, storages: Dict[str, int]):
                     f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
 
 
-def storage_rsolve(cwd: Path, storages: Dict[str, Union[int, str]]) -> Dict[str, int]:
+def storage_rsolve(cwd: Path, _storages: list[str]) -> Dict[str, int]:
+    storages = {}
+    for storage in _storages:
+        storages[storage] = "full"
     for storage, end_step in storages.items():
-        if end_step == "full":
-            with adios2.open(str(cwd / storage), 'r') as reader_c:  # type: ignore
-                storages[storage] = reader_c.steps()
-    return storages  # type: ignore
+        with adios2.open(str(cwd / storage), 'r') as reader_c:  # type: ignore
+            storages[storage] = reader_c.steps()
+    return storages
 
 
 def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[int, Dict[str, int]]]]:
