@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:04:46
+# Last modified: 14-04-2023 21:29:27
 
 variable_equal_numeric = r"^variable[ \t]+[a-zA-Z]+[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+"
 variable_equal_formula = r"^variable[ \t]+[a-zA-Z]+[ \t]+equal[ \t]+\$\(.+\)"
@@ -27,3 +27,7 @@ def required_variable_equal_numeric(var) -> str:
 
 def read_restart_specify(restart_file):
     return r"read_restart[ \t]+" + restart_file + r"\d+"
+
+
+if __name__ == "__main__":
+    pass

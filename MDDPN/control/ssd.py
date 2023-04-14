@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:11:08
+# Last modified: 14-04-2023 21:35:05
 
 
 # TODO:
@@ -38,7 +38,7 @@ def main_main(cwd: Path, args: argparse.Namespace):
                 state = restart(cwd, state, args)
             elif args.command == 'end':
                 # raise NotImplementedError("Don't use it until it fixed")
-                return end(cwd, args)
+                state = end(cwd, state, args)
             elif args.command == 'set':
                 return com_set(cwd, args)
             else:

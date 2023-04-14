@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:08:10
+# Last modified: 14-04-2023 21:29:19
 
 import re
 import json
@@ -141,3 +141,7 @@ def init(cwd: Path, args: argparse.Namespace):
     with (cwd / cs.state_file).open('w') as f:
         json.dump(state, f)
     return 0
+
+
+if __name__ == "__main__":
+    pass

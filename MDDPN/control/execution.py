@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:07:59
+# Last modified: 14-04-2023 21:29:08
 
 import re
 import shlex
@@ -105,3 +105,7 @@ def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict) 
         print()
         raise RuntimeError("sbatch command not returned task jobid")
     return int(num)
+
+
+if __name__ == "__main__":
+    pass

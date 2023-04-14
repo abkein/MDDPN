@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 22:44:56
+# Last modified: 14-04-2023 21:28:57
 
 from pathlib import Path
 
@@ -49,3 +49,7 @@ Fjobid = "sb_jobid"
 Frestart_files = 'restart_files'
 start_template_file = in_templates_dir / "START.template"
 data_processing_folder = "data_processing"
+
+
+if __name__ == "__main__":
+    pass

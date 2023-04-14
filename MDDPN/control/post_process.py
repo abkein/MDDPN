@@ -6,41 +6,45 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:11:32
+# Last modified: 14-04-2023 21:42:55
 
-import json
 import argparse
 import warnings
+from typing import Dict
 from pathlib import Path
 
-from .constants import state_file
+from .utils import states
+from . import constants as cs
 from .execution import perform_processing_run
 
 
-def state_runs_repair(state: dict) -> dict:
-    for label in state["run_labels"]:
+def state_runs_check(state: dict) -> bool:
+    fl = True
+    rlabels = state[cs.Frun_labels]
+    for label in rlabels:
         rc = 0
-        while str(rc) in state["run_labels"][label]:
+        while str(rc) in rlabels[label]:
             rc += 1
-        prc = state["run_labels"][label]["runs"]
+        prc = rlabels[label][cs.Fruns]
         if prc != rc:
+            fl = False
             warnings.warn(f"Label {label} runs: present={prc}, real={rc}, changing")
-        state["run_labels"][label]["runs"] = rc
-    return state
+    return fl
 
 
 def state_validate(cwd: Path, state: dict) -> bool:
     fl = True
-    for label in state["run_labels"]:
-        for i in range(int(state["run_labels"][label]["runs"])):
-            dump_file: Path = cwd / state["run_labels"][label][str(i)]["dump_f"]
+    rlabels = state[cs.Frun_labels]
+    for label in rlabels:
+        for i in range(int(rlabels[label][cs.Fruns])):
+            dump_file: Path = cwd / rlabels[label][str(i)]["dump_f"]
             if not dump_file.exists():
                 fl = False
                 warnings.warn(f"Dump file {dump_file.as_posix()} not exists")
     return fl
 
 
-def end(cwd: Path, args: argparse.Namespace):
+def end(cwd: Path, state: Dict, args: argparse.Namespace):
 
     origin = cwd / "temperature.log"
     origin.rename("temperature.log.bak")
@@ -51,53 +55,26 @@ def end(cwd: Path, args: argparse.Namespace):
             if line[0] == '#':
                 continue
             fout.write(line)
-    # origin.unlink()
 
-    if args.files is None:
-        if not (cwd / state_file).exists():
-            raise FileNotFoundError("State file 'state.json' not found")
-        with (cwd / state_file).open('r') as f:
-            state = json.load(f)
-        state = state_runs_repair(state)
-        if not state_validate(cwd, state):
-            return 1
+    if not (state_runs_check(state) and state_validate(cwd, state)):
+        print("Stopped")
+        return state
 
-        df = []
+    df = []
+    rlabels = state[cs.Frun_labels]
 
-        for label in state["run_labels"]:
-            for i in range(int(state["run_labels"][label]["runs"])):
-                df.append(state["run_labels"][label][str(i)]["dump_f"])
-        print(df)
-        with (cwd / state_file).open('w') as f:
-            json.dump(state, f)
-    else:
-        df = json.loads(args.files)
+    for label in rlabels:
+        for i in range(int(rlabels[label][cs.Fruns])):
+            df.append(rlabels[label][str(i)]["dump_f"])
 
-    # print("#####################OK#####################")
-    # return
+    job_id = perform_processing_run(cwd, state, df, args.params)
 
-    job_id = perform_processing_run(cwd, {}, df, args.params)
+    state["post_process"] = job_id
+    print(f"Sbatch job id: {job_id}")
 
-    # state["post_process"] = job_id
-    print(f"SBJID: {job_id}")
+    state[cs.state_field] = states.data_obtained
+    return state
 
-    # with (cwd / state_file).oplisten('r') as f:
-    #     state = json.load(f)
-    # time_step = state['variables']['dt']
 
-    # temperatures = pd.read_csv(cwd / "temperature.log", header=None)
-    # temptime = temperatures[0].to_numpy(dtype=np.uint64)
-    # temperatures = temperatures[1].to_numpy(dtype=np.float64)
-
-    # xilog = pd.read_csv(
-    #     cwd / "xi.log", header=None).to_numpy(dtype=np.uint32).flatten()
-    # xilog -= 1
-    # dtemp_xi = temperatures[temptime == xilog[0]] - \
-    #     temperatures[temptime == xilog[1]]
-    # xi = dtemp_xi / (xilog[1] - xilog[0]) / time_step
-
-    # state['xi'] = xi[0]
-
-    # (cwd / state_file).unlink()
-    # (cwd / state_file).touch()
-    # state["state"] = states.data_obtained
+if __name__ == "__main__":
+    pass

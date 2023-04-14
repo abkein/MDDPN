@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:09:49
+# Last modified: 14-04-2023 21:29:33
 
 import re
 from pathlib import Path
@@ -132,3 +132,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
             run_polling(cwd, args, sb_jobid)
 
     return state
+
+
+if __name__ == "__main__":
+    pass
