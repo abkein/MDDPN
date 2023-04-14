@@ -9,3 +9,6 @@ freud
 cpp
 psync.py
 rec_sync.sh
+tests
+**/__pycache__/
+calc_lines.sh

@@ -6,13 +6,13 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 23:26:14
+# Last modified: 14-04-2023 21:07:59
 
-import argparse
-from pathlib import Path
 import re
 import shlex
+import argparse
 import subprocess as sb
+from pathlib import Path
 from typing import List, Dict
 
 from . import constants as cs
@@ -51,7 +51,7 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
         fh.writelines(f"#SBATCH --nodes={cs.sbatch_nodes}\n")
         fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
         fh.writelines(f"#SBATCH --partition={cs.sbatch_part}\n")
-        fh.writelines(f"srun -u {cs.lammps_exec} -in {in_file_name.as_posix()}")
+        fh.writelines(f"srun -u {cs.lammps_exec} -in {cs.in_file_dir}/{in_file_name}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

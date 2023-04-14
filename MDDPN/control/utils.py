@@ -6,12 +6,13 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 22:29:55
+# Last modified: 14-04-2023 21:10:49
 
 import json
 import argparse
 from enum import Enum
 from pathlib import Path
+from typing import Generator
 from contextlib import contextmanager
 
 from . import constants as cs
@@ -44,7 +45,7 @@ def com_set(cwd: Path, args: argparse.Namespace):
 
 
 @contextmanager
-def load_state(cwd):
+def load_state(cwd) -> Generator:
     if not (cwd / cs.state_file).exists():
         raise FileNotFoundError(f"State file '{cs.state_file}' not found")
     with (cwd / cs.state_file).open('r') as f:

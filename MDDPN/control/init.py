@@ -6,15 +6,16 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 23:18:59
+# Last modified: 14-04-2023 21:08:10
 
-import argparse
-import json
 import re
-from pathlib import Path
+import json
+import argparse
 from typing import Dict
+from pathlib import Path
 
 from .utils import states
+from . import regexs as rs
 from . import constants as cs
 
 # TODO:
@@ -29,42 +30,39 @@ def process_file(file: Path, state: Dict) -> Dict:
     label = "START"
     with file.open('r') as fin:
         for line in fin:
-            if re.match(r"^variable[ \t]+[a-zA-Z]+[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+", line):
+            if re.match(rs.variable_equal_numeric, line):
                 w_variable, VAR_NAME, w_equal, VAR_VAL = line.split()
                 VAR_VAL = eval(VAR_VAL)
                 variables[VAR_NAME] = VAR_VAL
                 variables["v_" + VAR_NAME] = VAR_VAL
-            if re.match(r"^variable[ \t]+[a-zA-Z]+[ \t]+equal[ \t]+\$\(.+\)", line):
+            elif re.match(rs.variable_equal_formula, line):
                 w_variable, VAR_NAME, w_equal, VAR_VAL = line.split()
                 VAR_VAL = VAR_VAL[2:-1]
                 VAR_VAL = eval(VAR_VAL, globals(), variables)
                 variables[VAR_NAME] = VAR_VAL
                 variables["v_" + VAR_NAME] = VAR_VAL
-            if re.match(r"^timestep[ \t]+[\d]+[\.\/]?\d+", line):
+            elif re.match(rs.set_timestep, line):
                 w_timestep, TIME_STEP = line.split()
                 TIME_STEP = eval(TIME_STEP)
                 variables['dt'] = TIME_STEP
                 state['time_step'] = TIME_STEP
-            if re.match(r"^run[ \t]+\d+[.\/]?\d+", line):
+            elif re.match(rs.run_numeric, line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval(RUN_STEPS)
                 runs["run" + str(runc)] = RUN_STEPS
                 labels[label] += [RUN_STEPS]
                 runc += 1
-            if re.match(r"^run[ \t]+\${[a-zA-Z]+}", line):
+            elif re.match(rs.run_formula, line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval("variables['" + RUN_STEPS[2:-1] + "']")
                 runs["run" + str(runc)] = RUN_STEPS
                 labels[label] += [RUN_STEPS]
                 runc += 1
-            if re.match(r"#[ \t]+label:[ \t][a-zA-Z]+", line):
+            elif re.match(rs.label_declaration, line):
                 label = line.split()[-1]
                 labels[label] = []
-            if re.match(r"restart[ \t]+(\$\{[a-zA-Z]+\}|[\d]+)[ \t]+[a-zA-Z]+\.\*", line):
-                # "rest.nucl.*" into "rest.nucl."
+            elif re.match(rs.set_restart, line):
                 state[cs.Frestart_files] = line.split()[-1][:-1]
-            # if re.match(r"dump[ \t]+[a-zA-Z]+[ \t]+[a-zA-Z]+[ \t]+atom\/adios[ \t]+(\$\{[a-zA-Z]+\}|\d+)[ \t]+[a-zA-Z\.\/]+", line):
-                # state["dump_file"] = line.split()[-1]
     vt = 0
     labels_list = list(labels.keys())
     for label in labels:
@@ -87,24 +85,16 @@ def gen_in(cwd: Path, state: Dict, variables: Dict[str, float]) -> Path:
         out_in_file.touch()
     with cs.start_template_file.open('r') as fin, out_in_file.open('w') as fout:
         for line in fin:
-            for var, value in variables.items():
-                if re.match(r"^variable[ \t]+" + str(var) + r"[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+", line):
-                    line = f"variable {var} equal {value}\n"
-            if re.match(r"dump[ \t]+[a-zA-Z]+[ \t]+[a-zA-Z]+[ \t]+atom\/adios[ \t]+(\$\{[a-zA-Z]+\}|\d+)[ \t]+[a-zA-Z\.\/]+", line):
-                before = line.split()[:-1]
-                # lkl = ""
-                # for el in before:
-                #     lkl += el + " "
-                # before = lkl
-                # dump_file = state['dump_file'].split('.')
-                # dump_file = dump_file[:-1] + ["START0"] + [dump_file[-1]]
-                # fff = ""
-                # for el in dump_file:
-                #     fff += el + "."
-                # fff = fff[:-1]
-                # line = before + fff
-                line = before + [f"{cs.dumps_folder}/START0", "\n"]
-                line = " ".join(line)
+            if re.match(rs.variable_equal_numeric, line):
+                for var, value in variables.items():
+                    if re.match(rs.required_variable_equal_numeric(var), line):
+                        line = f"variable {var} equal {value}\n"
+            elif re.match(rs.set_dump, line):
+                before = line.split()[:-1] + [f"{cs.dumps_folder}/START0", "\n"]
+                line = " ".join(before)
+            elif re.match(rs.set_restart, line):
+                line_list = line.split()[:-1] + [f"{cs.restarts_folder}/{state[cs.Frestart_files]}*", "\n"]
+                line = " ".join(line_list)
             fout.write(line)
     return out_in_file
 
@@ -141,8 +131,8 @@ def init(cwd: Path, args: argparse.Namespace):
         variables = json.loads(args.params)
     state[cs.Fuser_variables] = variables
 
-    tstate = process_file(cs.start_template_file, {})
-    in_file = gen_in(cwd, tstate, variables)
+    state = process_file(cs.start_template_file, state)
+    in_file = gen_in(cwd, state, variables)
     state = process_file(in_file, state)
     state[cs.Frun_labels]["START"]["0"][cs.Fin_file] = str(in_file.parts[-1])
     state[cs.Frun_labels]["START"]["0"][cs.Frun_no] = 1

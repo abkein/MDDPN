@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 23:28:15
+# Last modified: 14-04-2023 21:11:08
 
 
 # TODO:
@@ -47,40 +47,29 @@ def main_main(cwd: Path, args: argparse.Namespace):
 
 def main():
     parser = argparse.ArgumentParser(prog='PROG')
-    parser.add_argument('--debug', action='store_true',
-                        help='Debug, prints only parsed arguments')
+    parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
 
     sub_parsers = parser.add_subparsers(help='sub-command help', dest="command")
 
     parser_init = sub_parsers.add_parser('init', help='Initialize directory')
-    parser_init.add_argument('--min', action="store_true",
-                             help='Don\'t create in. files')
-    parser_init.add_argument("-p", '--params', action="store", type=str,
-                             help='Obtain simulation parameters from command-line')
-    parser_init.add_argument("-f", '--file', action="store_true",
-                             help='Obtain simulation parameters from file')
-    parser_init.add_argument("-fn", '--fname', action="store",
-                             help='Specify file to get parameters from')
+    parser_init.add_argument('--min', action="store_true", help='Don\'t create in. files')
+    parser_init.add_argument("-p", '--params', action="store", type=str, help='Obtain simulation parameters from command-line')
+    parser_init.add_argument("-f", '--file', action="store_true", help='Obtain simulation parameters from file')
+    parser_init.add_argument("-fn", '--fname', action="store", help='Specify file to get parameters from')
 
     parser_set = sub_parsers.add_parser('set', help='Set variable in config json file')
-    parser_set.add_argument('file', action="store", type=str,
-                            help='File in which set the variable')
-    parser_set.add_argument('variable', action="store", type=str,
-                            help='The variable to set')
-    parser_set.add_argument('value', action="store", type=float,
-                            help='Value of variable')
+    parser_set.add_argument('file', action="store", type=str, help='File in which set the variable')
+    parser_set.add_argument('variable', action="store", type=str, help='The variable to set')
+    parser_set.add_argument('value', action="store", type=float, help='Value of variable')
 
-    parser_run = sub_parsers.add_parser(
-        'run', help='Run LAMMPS simulation')
-    parser_run.add_argument(
-        '--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
+    parser_run = sub_parsers.add_parser('run', help='Run LAMMPS simulation')
+    parser_run.add_argument('--test', action='store_true', help='Whether actually run LAMMPS or not. Test purposes only')
+    parser_run.add_argument('--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
 
     parser_restart = sub_parsers.add_parser('restart', help='Generate restart file and run it')
-    parser_restart.add_argument('--gen', action='store_false', help='Don\'t run restart')
-    parser_restart.add_argument('-s', '--step', action='store', type=int,
-                                help='From which step do the restart')
-    parser_restart.add_argument(
-        '--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
+    parser_restart.add_argument('--test', action='store_true', help='Whether actually run LAMMPS or not. Test purposes only')
+    parser_restart.add_argument('-s', '--step', action='store', type=int, help='From which step do the restart')
+    parser_restart.add_argument('--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
     parser_end.add_argument('--params', action='store', type=str, help='Post-processing parameters')

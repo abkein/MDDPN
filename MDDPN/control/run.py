@@ -6,29 +6,31 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-04-2023 23:26:39
+# Last modified: 14-04-2023 21:09:49
 
 import re
-from typing import List
 from pathlib import Path
-from typing import Dict
+from typing import List, Dict
 from argparse import Namespace as argNamespace
 
+from . import regexs as rs
+from . import constants as cs
 from .utils import states, LogicError
 from .execution import perform_run, run_polling
-from . import constants as cs
 
 
-def run(cwd: Path, state: Dict, args: argNamespace):
+def run(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     if states(state[cs.state_field]) != states.fully_initialized:
         raise LogicError("Folder isn't properly initialized")
 
-    sb_jobid = perform_run(cwd, state[cs.Frun_labels]['START']['0'][cs.Fin_file], state)
     state[cs.state_field] = states.started
-    state[cs.Frun_labels]['START']["0"][cs.Fjobid] = sb_jobid
 
-    if not args.no_auto:
-        run_polling(cwd, args, sb_jobid)
+    if not args.test:
+        sb_jobid = perform_run(cwd, state[cs.Frun_labels]['START']['0'][cs.Fin_file], state)
+        state[cs.Frun_labels]['START']["0"][cs.Fjobid] = sb_jobid
+
+        if not args.no_auto:
+            run_polling(cwd, args, sb_jobid)
 
     return state
 
@@ -54,30 +56,22 @@ def gen_restart(cwd: Path, label: str, last_file: int, state: Dict) -> tuple[Pat
         fff = ""
         for line in fin:
             variables['lastStep'] = last_file
-            for var in list(variables.keys()):
-                if re.match(r"^variable[ \t]+" + str(var) + r"[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+", line):
-                    line = f"variable {var} equal {variables[var]}\n"
-                if re.match(r"^variable[ \t]+preparingSteps[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+", line):
-                    line = f"variable preparingSteps equal {state[cs.Frun_labels][label]['begin_step']}\n"
-            if re.match(r"read_restart[ \t]+" + state[cs.Frestart_files] + r"\.\d+", line):
-                line = f"read_restart {cs.restarts_folder}/{state[cs.Frestart_files]}.{last_file}\n"
-            if re.match(r"dump[ \t]+[a-zA-Z]+[ \t]+[a-zA-Z]+[ \t]+atom\/adios[ \t]+(\$\{[a-zA-Z]+\}|\d+)[ \t]+[a-zA-Z\.\/]+", line):
+            if re.match(rs.variable_equal_numeric, line):
+                for var in list(variables.keys()):
+                    if re.match(rs.required_variable_equal_numeric(var), line):
+                        line = f"variable {var} equal {variables[var]}\n"
+                    if re.match(rs.required_variable_equal_numeric("preparingSteps"), line):
+                        line = f"variable preparingSteps equal {state[cs.Frun_labels][label]['begin_step']}\n"
+            elif re.match(rs.read_restart_specify(state[cs.Frestart_files]), line):
+                line = f"read_restart {cs.restarts_folder}/{state[cs.Frestart_files]}{last_file}\n"
+            elif re.match(rs.set_dump, line):
                 before: List[str] = line.split()[:-1]
-                # lkl = ""
-                # for el in before:
-                #     lkl += el + " "
-                # before = lkl
-                # dump_file = state['dump_file'].split('.')
-
-                # dump_file = dump_file[:-1] + [f"{label}{state['run_labels'][label]['runs']}"] + [dump_file[-1]]
-                # for el in dump_file:
-                #     fff += el + "."
-                # fff = fff[:-1]
-                # line = before + fff
-                # line += "\n"
                 fff = f"{label}{state[cs.Frun_labels][label][cs.Fruns]}"
-                line = before + [f"{cs.dumps_folder}/{fff}", "\n"]
-                line = " ".join(line)
+                before += [f"{cs.dumps_folder}/{fff}", "\n"]
+                line = " ".join(before)
+            elif re.match(rs.set_restart, line):
+                line_list = line.split()[:-1] + [f"{cs.restarts_folder}/{state[cs.Frestart_files]}*", "\n"]
+                line = " ".join(line_list)
             fout.write(line)
     del variables['lastStep']
     return out_in_file, fff
@@ -90,16 +84,13 @@ def max_step(state: Dict) -> int:
     return max(fff)
 
 
-def restart(cwd: Path, state: Dict, args: argNamespace):
+def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     if states(state[cs.state_field]) != states.started and states(state[cs.state_field]) != states.restarted:
         raise LogicError("Folder isn't properly initialized")
     if args.step is None:
         last_file = find_last(cwd)
     else:
         last_file = args.step
-    if last_file >= max_step(state) - 1:
-        state["state"] = states.comleted
-        return state
     if states(state[cs.state_field]) == states.started:
         state[cs.restart_field] = 1
         state[cs.state_field] = states.restarted
@@ -115,21 +106,29 @@ def restart(cwd: Path, state: Dict, args: argNamespace):
             if last_file < rlabels[label]["end_step"] - 1:
                 current_label = label
                 break
-    out_file, dump_file = gen_restart(cwd, current_label, last_file, state)
-    sb_jobid = perform_run(cwd, out_file, state)
     fl = False
     for label_c in reversed(state[cs.Flabels_list]):
         if fl:
             if '0' in rlabels[label_c]:
-                state[cs.Frun_labels][label_c][rlabels[label_c][cs.Fruns]]["last_step"] = last_file
+                state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]["last_step"] = last_file
                 break
         elif label_c == current_label:
             fl = True
-    state[cs.Frun_labels][current_label][f"{state[cs.Frun_labels][current_label][cs.Fruns]}"] = {
-        cs.Fjobid: sb_jobid, "last_step": last_file, cs.Fin_file: str(out_file.parts[-1]), "dump.f": str(dump_file), "run_no": state["run_counter"]}
-    state[cs.Frun_labels][current_label][cs.Fruns] += 1
 
-    if not args.no_auto:
-        run_polling(cwd, args, sb_jobid)
+    if last_file >= max_step(state) - 1:
+        state["state"] = states.comleted
+        return state
+
+    out_file, dump_file = gen_restart(cwd, current_label, last_file, state)
+
+    if not args.test:
+        sb_jobid = perform_run(cwd, out_file, state)
+
+        state[cs.Frun_labels][current_label][f"{state[cs.Frun_labels][current_label][cs.Fruns]}"] = {
+            cs.Fjobid: sb_jobid, "last_step": last_file, cs.Fin_file: str(out_file.parts[-1]), "dump.f": str(dump_file), "run_no": state["run_counter"]}
+        state[cs.Frun_labels][current_label][cs.Fruns] += 1
+
+        if not args.no_auto:
+            run_polling(cwd, args, sb_jobid)
 
     return state
