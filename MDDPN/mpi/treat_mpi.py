@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 10-04-2023 23:23:54
+# Last modified: 15-04-2023 21:34:00
 
 
 import os
@@ -23,11 +23,13 @@ import numpy as np
 from numpy import typing as npt
 import pandas as pd
 
-from .mpiworks import MPI_TAGS, MPIComm
+from .utils import setts
 from ..core import calc
+from .mpiworks import MPI_TAGS
 
 
-def treat_mpi(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
+def treat_mpi(sts: setts) -> Literal[0]:
+    cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
     proc_rank = mpi_rank - 1
     cwd: Path

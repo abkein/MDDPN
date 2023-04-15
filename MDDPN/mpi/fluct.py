@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 15:42:53
+# Last modified: 15-04-2023 19:15:48
 
 # TODO:
 # Change parser description
@@ -51,7 +51,6 @@ def process(file: Path, xi: float, time_step: float, wevery: int, dT: float):
             writer = csv.writer(csv_file, delimiter=',')
             counter = 0
             for step in adout:
-                # sti: int = step.read("step")
                 dist: npt.NDArray[np.uint32] = step.read("dist")
 
                 buffer[counter, :] = dist

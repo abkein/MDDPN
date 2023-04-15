@@ -6,20 +6,21 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 10-04-2023 22:59:40
+# Last modified: 15-04-2023 21:29:02
 
 
 import time
-from pathlib import Path
 from typing import Dict, Literal
 
 from . import adios2
 import numpy as np
 
-from .mpiworks import MPIComm, MPI_TAGS
+from .mpiworks import MPI_TAGS
+from .utils import setts
 
 
-def reader(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
+def reader(sts: setts) -> Literal[0]:
+    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
     mpi_comm.Barrier()
     dasdictt: Dict[str, int | Dict[str, int]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
     ino: int = dasdictt["no"]  # type: ignore

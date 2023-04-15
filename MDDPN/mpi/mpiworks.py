@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 10-04-2023 23:21:54
+# Last modified: 15-04-2023 21:30:09
 
 
 import os
@@ -26,6 +26,9 @@ from . import adios2
 import numpy as np
 from numpy import typing as npt
 from mpi4py import MPI
+
+
+from .utils import setts
 
 
 def blockPrint() -> None:
@@ -155,7 +158,9 @@ def nonroot_sanity(mpi_comm: MPIComm) -> Literal[1, 0]:
     return 0
 
 
-def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> NoReturn:
+def ad_mpi_writer(sts: setts) -> NoReturn:
+    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    file = cwd / "ntb.bp"
     mpi_comm.Barrier()
     threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
     with adios2.open(str(file), 'w') as adout:  # type: ignore
@@ -170,7 +175,9 @@ def ad_mpi_writer(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -
                     mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.STATE)
 
 
-def csvWriter(file: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> NoReturn:
+def csvWriter(sts: setts) -> NoReturn:
+    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    file = cwd / "rdata.csv"
     mpi_comm.Barrier()
     threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
 

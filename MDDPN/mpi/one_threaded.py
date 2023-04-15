@@ -6,9 +6,8 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-04-2023 21:09:21
+# Last modified: 15-04-2023 21:50:14
 
-from pathlib import Path
 from typing import Dict
 import csv
 
@@ -18,32 +17,33 @@ from numpy import typing as npt
 import freud
 
 from . import adios2
-from .mpiworks import MPIComm, MPI_TAGS
+from .utils import setts
+from .mpiworks import MPI_TAGS
 from ..core.distribution import get_dist
 from ..core import calc
 
 
-def thread(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
+def thread(sts: setts):
+    cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
 
-    dasdictt: Dict[str, int | Dict[str, int]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
-    ino: int = dasdictt["no"]  # type: ignore
-    storages: Dict[str, int] = dasdictt["storages"]  # type: ignore
+    ino: int
+    storages: Dict[str, int]
+    ino, storages = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
 
     N_atoms: int
     bdims: npt.NDArray[np.float32]
-
     N_atoms, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_2)
+
     box = freud.box.Box.from_box(bdims)
     volume = box.volume
     sizes: npt.NDArray[np.uint32] = np.arange(1, N_atoms + 1, dtype=np.uint64)
 
-    cwd: Path
     kmax: int
     g: int
     dt: float
     dis: int
-    cwd, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_3)
+    kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_3)
 
     temperatures_mat = pd.read_csv(cwd / "temperature.log", header=None)
     temptime = temperatures_mat[0].to_numpy(dtype=np.uint64)

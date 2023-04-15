@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-04-2023 01:19:32
+# Last modified: 15-04-2023 21:32:45
 
 
 import os
@@ -22,11 +22,13 @@ import freud
 import numpy as np
 from numpy import typing as npt
 
-from .mpiworks import MPIComm, MPI_TAGS
+from .utils import setts
+from .mpiworks import MPI_TAGS
 from ..core.distribution import get_dist
 
 
-def proceed(mpi_comm: MPIComm, mpi_rank: int, mpi_size: int) -> Literal[0]:
+def proceed(sts: setts) -> Literal[0]:
+    mpi_comm, mpi_rank = sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
     N: int
     bdims: npt.NDArray[np.float32]
