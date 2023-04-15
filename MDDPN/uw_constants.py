@@ -6,11 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:31:36
-
-import sys
-
-from MDDPN.control import ssd
+# Last modified: 15-04-2023 14:32:48
 
 
-sys.exit(ssd.main())
+data_processing_folder = "data_processing"
+data_file = 'data.json'
+
+
+if __name__ == "__main__":
+    pass

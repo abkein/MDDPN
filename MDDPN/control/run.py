@@ -6,11 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:29:33
+# Last modified: 15-04-2023 01:28:48
 
 import re
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from argparse import Namespace as argNamespace
 
 from . import regexs as rs
@@ -46,7 +46,7 @@ def find_last(cwd: Path) -> int:
     return max(files)
 
 
-def gen_restart(cwd: Path, label: str, last_file: int, state: Dict) -> tuple[Path, str]:
+def gen_restart(cwd: Path, label: str, last_file: int, state: Dict) -> Tuple[Path, str]:
     variables = state[cs.Fuser_variables]
     template_file = cs.in_templates_dir / (label + ".template")
     out_in_file = cwd / cs.in_file_dir / (label + str(state[cs.Frun_labels][label][cs.Fruns]) + ".in")

@@ -6,10 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:29:19
+# Last modified: 15-04-2023 14:30:54
 
 import re
 import json
+import time
 import argparse
 from typing import Dict
 from pathlib import Path
@@ -17,6 +18,7 @@ from pathlib import Path
 from .utils import states
 from . import regexs as rs
 from . import constants as cs
+from .. import uw_constants as ucs
 
 # TODO:
 # gen_in not properly processes folders
@@ -30,7 +32,22 @@ def process_file(file: Path, state: Dict) -> Dict:
     label = "START"
     with file.open('r') as fin:
         for line in fin:
-            if re.match(rs.variable_equal_numeric, line):
+            if re.match(rs.required_variable_equal_numeric("SEED_I"), line):
+                VAR_VAL = round(time.time())
+                state[cs.Fuser_variables]["SEED_I"] = VAR_VAL
+                variables["SEED_I"] = VAR_VAL
+                variables["v_SEED_I"] = VAR_VAL
+            elif re.match(rs.required_variable_equal_numeric("SEED_II"), line):
+                VAR_VAL = round(time.time())
+                state[cs.Fuser_variables]["SEED_II"] = VAR_VAL
+                variables["SEED_II"] = VAR_VAL
+                variables["v_SEED_II"] = VAR_VAL
+            elif re.match(rs.required_variable_equal_numeric("SEED_III"), line):
+                VAR_VAL = round(time.time())
+                state[cs.Fuser_variables]["SEED_III"] = VAR_VAL
+                variables["SEED_III"] = VAR_VAL
+                variables["v_SEED_III"] = VAR_VAL
+            elif re.match(rs.variable_equal_numeric, line):
                 w_variable, VAR_NAME, w_equal, VAR_VAL = line.split()
                 VAR_VAL = eval(VAR_VAL)
                 variables[VAR_NAME] = VAR_VAL
@@ -77,7 +94,8 @@ def process_file(file: Path, state: Dict) -> Dict:
     return state
 
 
-def gen_in(cwd: Path, state: Dict, variables: Dict[str, float]) -> Path:
+def gen_in(cwd: Path, state: Dict) -> Path:
+    variables = state[cs.Fuser_variables]
     out_in_file = cwd / cs.in_file_dir / "START0.in"
     if out_in_file.exists():
         raise FileExistsError(f"Output in. file {out_in_file} already exists")
@@ -115,6 +133,9 @@ def check_required_fs(cwd: Path):
     if (cwd / cs.sl_dir).exists():
         raise FileExistsError(f"Directory {cs.sl_dir} already exists")
     (cwd / cs.sl_dir).mkdir()
+    if (cwd / ucs.data_processing_folder).exists():
+        raise FileExistsError(f"Directory {ucs.data_processing_folder} already exists")
+    (cwd / ucs.data_processing_folder).mkdir()
     return True
 
 
@@ -132,7 +153,7 @@ def init(cwd: Path, args: argparse.Namespace):
     state[cs.Fuser_variables] = variables
 
     state = process_file(cs.start_template_file, state)
-    in_file = gen_in(cwd, state, variables)
+    in_file = gen_in(cwd, state)
     state = process_file(in_file, state)
     state[cs.Frun_labels]["START"]["0"][cs.Fin_file] = str(in_file.parts[-1])
     state[cs.Frun_labels]["START"]["0"][cs.Frun_no] = 1

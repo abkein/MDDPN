@@ -12,7 +12,6 @@
 from pathlib import Path
 
 import numpy as np
-from multiprocessing import Process, Manager
 import adios2
 import freud
 import fastd as fd
@@ -20,6 +19,7 @@ import time
 import argparse
 import json
 from datetime import datetime
+from multiprocessing import Process, Manager
 import treat
 
 

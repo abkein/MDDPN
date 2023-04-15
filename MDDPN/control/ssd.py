@@ -6,12 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:35:05
+# Last modified: 15-04-2023 03:12:28
 
 
 # TODO:
 # preparing steps for every label
-# add description in argument parser
 
 
 import argparse
@@ -46,7 +45,7 @@ def main_main(cwd: Path, args: argparse.Namespace):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='PROG')
+    parser = argparse.ArgumentParser(prog='MDDPN.py')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
 
     sub_parsers = parser.add_subparsers(help='sub-command help', dest="command")

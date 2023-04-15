@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:42:55
+# Last modified: 15-04-2023 14:31:20
 
 import argparse
 import warnings
@@ -16,6 +16,8 @@ from pathlib import Path
 from .utils import states
 from . import constants as cs
 from .execution import perform_processing_run
+
+from .. import uw_constants as ucs
 
 
 def state_runs_check(state: dict) -> bool:
@@ -37,7 +39,7 @@ def state_validate(cwd: Path, state: dict) -> bool:
     rlabels = state[cs.Frun_labels]
     for label in rlabels:
         for i in range(int(rlabels[label][cs.Fruns])):
-            dump_file: Path = cwd / rlabels[label][str(i)]["dump_f"]
+            dump_file: Path = cwd / ucs.data_processing_folder / rlabels[label][str(i)]["dump_f"]
             if not dump_file.exists():
                 fl = False
                 warnings.warn(f"Dump file {dump_file.as_posix()} not exists")

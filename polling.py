@@ -6,11 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:31:36
+# Last modified: 15-04-2023 17:30:37
 
 import sys
 
-from MDDPN.control import ssd
+from MDDPN.control import polling
 
 
-sys.exit(ssd.main())
+sys.exit(polling.main())

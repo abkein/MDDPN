@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-04-2023 21:37:18
+# Last modified: 15-04-2023 14:38:01
 
 
 import os
@@ -17,7 +17,7 @@ from enum import Enum
 from math import floor
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Union, Tuple
+from typing import Dict, Union, Tuple, List
 
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -34,9 +34,10 @@ from . import mpiworks as MW
 from . import one_threaded
 from . import reader
 from .mpiworks import MPIComm, MPI_TAGS, MPISanityError
+from .. import uw_constants as ucs
 
 
-data_file = 'data.json'
+data_file = ucs.data_file
 
 
 class Role(Enum):
@@ -67,13 +68,15 @@ def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.f
     return (N, bdims)
 
 
-def storage_check(cwd: Path, storages: Dict[str, int]):
+def storage_check(cwd: Path, storages: Dict[str, int]) -> bool:
+    fl = True
     for storage, end_step in storages.items():
         with adios2.open(str(cwd / storage), 'r') as reader:  # type: ignore
             total_steps = reader.steps()
             if end_step > total_steps:
-                raise RuntimeError(
-                    f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
+                fl = False
+                raise RuntimeError(f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
+    return fl
 
 
 def storage_rsolve(cwd: Path, _storages: list[str]) -> Dict[str, int]:
@@ -120,9 +123,10 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
 
 
 def perform_group_run(args, cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
-    storages = json.loads(args.storages)  # type: dict
-    storages = storage_rsolve(cwd, storages)
-    storage_check(cwd, storages)
+    _storages: List[str] = json.loads(args.storages)  # type: dict
+    storages = storage_rsolve(cwd, _storages)
+    if not storage_check(cwd, storages):
+        raise RuntimeError("Storage check unsuccessfull")
     thread_len = 3
     thread_num = floor((mpi_size - nv) / thread_len)
     print(f"Thread num: {thread_num}")
@@ -203,8 +207,8 @@ def perform_group_run(args, cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_siz
 
 
 def perform_one_threaded(args, cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int, nv: int):
-    storages = json.loads(args.storages)  # type: dict
-    storages = storage_rsolve(cwd, storages)
+    _storages: List[str] = json.loads(args.storages)  # type: dict
+    storages = storage_rsolve(cwd, _storages)
     storage_check(cwd, storages)
     thread_num = mpi_size - nv
     print(f"Thread num: {thread_num}")
@@ -287,22 +291,14 @@ def main(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
     print("Started at ", datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
 
     parser = argparse.ArgumentParser(description='Process some floats.')
-    parser.add_argument('--debug', action='store_true',
-                        help='Debug, prints only parsed arguments')
-    parser.add_argument('--groupmode', action='store_true',
-                        help='Run in group-threaded mode')
-    parser.add_argument('-o', '--outfile', type=str, default="rdata.csv",
-                        help='File in which save obtained data')
-    parser.add_argument('-k', '--kmax', metavar='kmax', type=int, nargs='?', default=10,
-                        action='store', help='kmax')
-    parser.add_argument('-g', '--critical_size', metavar='g', type=int, nargs='?', default=19,
-                        action='store', help='Critical size')
-    parser.add_argument('-t', '--timestep', metavar='ts', type=float, nargs='?', default=0.005,
-                        action='store', help='Timestep')
-    parser.add_argument('-s', '--dis', metavar='dis', type=int, nargs='?', default=1000,
-                        action='store', help='Time between dump records')
-    parser.add_argument('storages', type=str,
-                        help='Folder in which search for .bp files')
+    parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
+    parser.add_argument('--groupmode', action='store_true', help='Run in group-threaded mode')
+    parser.add_argument('-o', '--outfile', type=str, default="rdata.csv", help='File in which save obtained data')
+    parser.add_argument('-k', '--kmax', metavar='kmax', type=int, nargs='?', default=10, action='store', help='kmax')
+    parser.add_argument('-g', '--critical_size', metavar='g', type=int, nargs='?', default=19, action='store', help='Critical size')
+    parser.add_argument('-t', '--timestep', metavar='ts', type=float, nargs='?', default=0.005, action='store', help='Timestep')
+    parser.add_argument('-s', '--dis', metavar='dis', type=int, nargs='?', default=1000, action='store', help='Time between dump records')
+    parser.add_argument('storages', type=str, help='Folder in which search for .bp files')
     args = parser.parse_args()
 
     if args.debug:

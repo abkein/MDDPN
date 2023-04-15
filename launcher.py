@@ -10,6 +10,8 @@
 
 
 import sys
-from MDDPN.mpi.multmpi import mpi_wrap
 
-sys.exit(mpi_wrap())
+from MDDPN.mpi import multmpi
+
+
+sys.exit(multmpi.mpi_wrap())

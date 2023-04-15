@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:29:08
+# Last modified: 15-04-2023 14:30:31
 
 import re
 import shlex
@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Dict
 
 from . import constants as cs
+from .. import uw_constants as ucs
 
 
 def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
@@ -68,7 +69,7 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
 
 def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict) -> int:
     sldir = Path(state[cs.Fslurm_directory_field])
-    tdir = sldir / cs.data_processing_folder
+    tdir = sldir / ucs.data_processing_folder
     tdir.mkdir(parents=True, exist_ok=True)
 
     jname = "MDDPN"
