@@ -6,13 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:34:00
+# Last modified: 16-04-2023 15:08:08
 
 
 import os
 import time
-from pathlib import Path
-from typing import Literal
+from typing import Literal, Dict, Any
 
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -32,15 +31,16 @@ def treat_mpi(sts: setts) -> Literal[0]:
     cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
     proc_rank = mpi_rank - 1
-    cwd: Path
-    N_atoms: int
-    bdims: npt.NDArray[np.float32]
-    kmax: int
-    g: int
-    dt: float
-    dis: int
-    cwd, N_atoms, bdims, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
-    box = freud.box.Box.from_box(bdims)
+    # N_atoms, bdims, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+    params: Dict[str, Any] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+    N_atoms: int = params["N_atoms"]
+    bdims: npt.NDArray[np.float32] = params["dimensions"]
+    kmax: int = params["kmax"]
+    g: int = params["g"]
+    dt: float = params["time_step"]
+    dis: int = params["every"]
+
+    box = freud.box.Box.from_box(np.array(bdims))
     volume = box.volume
     sizes: npt.NDArray[np.uint32] = np.arange(1, N_atoms + 1, dtype=np.uint64)
 

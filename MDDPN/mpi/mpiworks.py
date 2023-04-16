@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:30:09
+# Last modified: 16-04-2023 14:49:49
 
 
 import os
@@ -15,8 +15,7 @@ import csv
 import time
 import secrets
 from enum import Enum
-from pathlib import Path
-from typing import List, Literal, NoReturn, Tuple, Union
+from typing import List, Literal, NoReturn, Union
 
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -28,7 +27,7 @@ from numpy import typing as npt
 from mpi4py import MPI
 
 
-from .utils import setts
+from .utils import setts, MPIComm, GatherResponseType
 
 
 def blockPrint() -> None:
@@ -37,10 +36,6 @@ def blockPrint() -> None:
 
 def enablePrint() -> None:
     sys.stdout = sys.__stdout__
-
-
-MPIComm = Union[MPI.Intracomm, MPI.Intercomm]
-GatherResponseType = List[Tuple[str, int]]
 
 
 class MPISanityError(RuntimeError):
@@ -159,11 +154,12 @@ def nonroot_sanity(mpi_comm: MPIComm) -> Literal[1, 0]:
 
 
 def ad_mpi_writer(sts: setts) -> NoReturn:
-    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
-    file = cwd / "ntb.bp"
+    cwd, mpi_comm = sts.cwd, sts.mpi_comm
     mpi_comm.Barrier()
     threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
-    with adios2.open(str(file), 'w') as adout:  # type: ignore
+    folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+
+    with adios2.open((cwd / folder / "ntb.bp").as_posix(), 'w') as adout:  # type: ignore
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
@@ -176,14 +172,13 @@ def ad_mpi_writer(sts: setts) -> NoReturn:
 
 
 def csvWriter(sts: setts) -> NoReturn:
-    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
-    file = cwd / "rdata.csv"
+    cwd, mpi_comm = sts.cwd, sts.mpi_comm
     mpi_comm.Barrier()
     threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
+    folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
 
     ctr: int = 0
-
-    with open(file, "w") as csv_file:
+    with open((cwd / folder / "rdata.csv"), "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         while True:
             for thread in threads:

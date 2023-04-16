@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:29:02
+# Last modified: 16-04-2023 14:46:29
 
 
 import time
@@ -20,9 +20,10 @@ from .utils import setts
 
 
 def reader(sts: setts) -> Literal[0]:
-    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
     dasdictt: Dict[str, int | Dict[str, int]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+    dump_folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
     ino: int = dasdictt["no"]  # type: ignore
     storages: Dict[str, int] = dasdictt["storages"]  # type: ignore
     proceeder_rank = mpi_rank + 1
@@ -31,7 +32,7 @@ def reader(sts: setts) -> Literal[0]:
     print(f"MPI rank {mpi_rank}, reader, storages: {storages}")
     storage: str
     for storage in storages:
-        with adios2.open(str(cwd / storage), 'r') as reader:  # type: ignore
+        with adios2.open((cwd / dump_folder / storage).as_posix(), 'r') as reader:  # type: ignore
             total_steps = reader.steps()
             i = 0
             for step in reader:

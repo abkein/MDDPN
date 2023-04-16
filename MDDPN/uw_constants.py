@@ -6,10 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 14:32:48
+# Last modified: 16-04-2023 10:41:54
 
 
-data_processing_folder = "data_processing"
 data_file = 'data.json'
 
 

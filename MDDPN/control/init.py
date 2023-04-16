@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 14:30:54
+# Last modified: 16-04-2023 12:08:01
 
 import re
 import json
@@ -18,7 +18,6 @@ from pathlib import Path
 from .utils import states
 from . import regexs as rs
 from . import constants as cs
-from .. import uw_constants as ucs
 
 # TODO:
 # gen_in not properly processes folders
@@ -79,7 +78,10 @@ def process_file(file: Path, state: Dict) -> Dict:
                 label = line.split()[-1]
                 labels[label] = []
             elif re.match(rs.set_restart, line):
-                state[cs.Frestart_files] = line.split()[-1][:-1]
+                w_restart, RESTART_FREQUENCY, RESTART_FILES = line.split()
+                state[cs.Frestart_files] = RESTART_FILES[:-1]
+                RESTART_FREQUENCY = eval("variables['" + RESTART_FREQUENCY[2:-1] + "']")
+                state[cs.Frestart_every] = RESTART_FREQUENCY
     vt = 0
     labels_list = list(labels.keys())
     for label in labels:
@@ -133,9 +135,9 @@ def check_required_fs(cwd: Path):
     if (cwd / cs.sl_dir).exists():
         raise FileExistsError(f"Directory {cs.sl_dir} already exists")
     (cwd / cs.sl_dir).mkdir()
-    if (cwd / ucs.data_processing_folder).exists():
-        raise FileExistsError(f"Directory {ucs.data_processing_folder} already exists")
-    (cwd / ucs.data_processing_folder).mkdir()
+    if (cwd / cs.data_processing_folder).exists():
+        raise FileExistsError(f"Directory {cs.data_processing_folder} already exists")
+    (cwd / cs.data_processing_folder).mkdir()
     return True
 
 

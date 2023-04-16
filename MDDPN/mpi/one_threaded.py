@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:50:14
+# Last modified: 16-04-2023 15:26:19
 
 from typing import Dict
 import csv
@@ -31,19 +31,27 @@ def thread(sts: setts):
     storages: Dict[str, int]
     ino, storages = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
 
-    N_atoms: int
-    bdims: npt.NDArray[np.float32]
-    N_atoms, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_2)
+    # N_atoms: int
+    # bdims: npt.NDArray[np.float32]
+    # N_atoms, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_2)
+
+    # kmax: int
+    # g: int
+    # dt: float
+    # dis: int
+    # kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_3)
+
+    params = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_2)
+    N_atoms: int = params["N_atoms"]
+    bdims: npt.NDArray[np.float32] = params["dimensions"]
+    kmax: int = params["kmax"]
+    g: int = params["g"]
+    dt: float = params["time_step"]
+    dis: int = params["every"]
 
     box = freud.box.Box.from_box(bdims)
     volume = box.volume
     sizes: npt.NDArray[np.uint32] = np.arange(1, N_atoms + 1, dtype=np.uint64)
-
-    kmax: int
-    g: int
-    dt: float
-    dis: int
-    kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_3)
 
     temperatures_mat = pd.read_csv(cwd / "temperature.log", header=None)
     temptime = temperatures_mat[0].to_numpy(dtype=np.uint64)
@@ -51,13 +59,13 @@ def thread(sts: setts):
 
     worker_counter = 0
     print(f"MPI rank {mpi_rank}, reader, storages: {storages}")
-    output_csv_fp = (cwd / f"rdata.{mpi_rank}.csv").as_posix()
-    ntb_fp = (cwd / f"ntb.{mpi_rank}.bp").as_posix()
+    output_csv_fp = (cwd / params["data_processing_folder"] / f"rdata.{mpi_rank}.csv").as_posix()
+    ntb_fp = (cwd / params["data_processing_folder"] / f"ntb.{mpi_rank}.bp").as_posix()
     with adios2.open(ntb_fp, 'w') as adout, open(output_csv_fp, "w") as csv_file:  # type: ignore
         writer = csv.writer(csv_file, delimiter=',')
         storage: str
         for storage in storages:
-            storage_fp = (cwd / storage).as_posix()
+            storage_fp = (cwd / params["dump_folder"] / storage).as_posix()
             with adios2.open(storage_fp, 'r') as reader:  # type: ignore
                 total_steps = reader.steps()
                 i = 0

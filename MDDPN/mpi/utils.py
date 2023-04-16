@@ -6,11 +6,15 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:38:07
+# Last modified: 16-04-2023 09:13:03
 
 from pathlib import Path
+from typing import Union, List, Tuple
 
-from .mpiworks import MPIComm
+from mpi4py import MPI
+
+MPIComm = Union[MPI.Intracomm, MPI.Intercomm]
+GatherResponseType = List[Tuple[str, int]]
 
 
 class setts():

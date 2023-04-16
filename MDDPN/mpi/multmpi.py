@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 21:48:55
+# Last modified: 16-04-2023 15:06:32
 
 
 import os
@@ -17,7 +17,7 @@ from enum import Enum
 from math import floor
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Union, Tuple, List
+from typing import Dict, Union, Tuple, List, Any
 
 
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
@@ -33,11 +33,10 @@ from . import one_threaded
 from . import mpiworks as MW
 from . import fastd_mpi as fd
 from . import treat_mpi as treat
-from .. import uw_constants as ucs
-from .mpiworks import MPIComm, MPI_TAGS, MPISanityError
-from .utils import setts
+from .mpiworks import MPI_TAGS, MPISanityError
+from .utils import setts, MPIComm
 
-data_file = ucs.data_file
+from .. import uw_constants as ucs
 
 
 class Role(Enum):
@@ -48,9 +47,9 @@ class Role(Enum):
     one_thread = 4
 
 
-def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.float32]]:
+def bearbeit(folder: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.float32]]:
     storage = list(storages.keys())[0]
-    adin = adios2.open(str(cwd / storage), 'r')  # type: ignore
+    adin = adios2.open((folder / storage).as_posix(), 'r')  # type: ignore
 
     N = int(adin.read('natoms'))
     Lx = float(adin.read('boxxhi'))
@@ -60,31 +59,16 @@ def bearbeit(cwd: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.f
     adin.close()
 
     bdims = np.array([Lx, Ly, Lz])
-    print("Box volume is: ", np.prod(bdims))
-    print("N atoms: ", N)
-    son = {'N': N, "Volume": np.prod(bdims)}
-    with open(cwd / data_file, 'w') as fp:
-        json.dump(son, fp)
     return (N, bdims)
 
 
-def storage_check(cwd: Path, storages: Dict[str, int]) -> bool:
-    fl = True
-    for storage, end_step in storages.items():
-        with adios2.open(str(cwd / storage), 'r') as reader:  # type: ignore
-            total_steps = reader.steps()
-            if end_step > total_steps:
-                fl = False
-                raise RuntimeError(f"End step {end_step} in {storage} is bigger that total step count ({total_steps})")
-    return fl
-
-
-def storage_rsolve(cwd: Path, _storages: list[str]) -> Dict[str, int]:
+def storage_rsolve(dump_folder: Path, _storages: List[str]) -> Dict[str, int]:
     storages = {}
     for storage in _storages:
-        storages[storage] = "full"
-    for storage, end_step in storages.items():
-        with adios2.open(str(cwd / storage), 'r') as reader_c:  # type: ignore
+        file = dump_folder / storage
+        if not file.exists():
+            raise FileNotFoundError(f"Storage {file} cannot be found")
+        with adios2.open(file.as_posix(), 'r') as reader_c:  # type: ignore
             storages[storage] = reader_c.steps()
     return storages
 
@@ -168,13 +152,13 @@ def after_ditribution(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int
     return 0
 
 
-def perform_group_run(sts: setts, args: argparse.Namespace, nv: int, N_atoms: int, bdims: npt.NDArray[np.float32], storages: Dict[str, int]):
+def perform_group_run(sts: setts, params: Dict, nv: int):
     cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
 
     thread_len = 3
     thread_num = floor((mpi_size - nv) / thread_len)
     print(f"Thread num: {thread_num}")
-    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(storages, thread_num)
+    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params["storages"], thread_num)
     print("Distribution")
     print(json.dumps(wd, indent=4))
 
@@ -187,21 +171,25 @@ def perform_group_run(sts: setts, args: argparse.Namespace, nv: int, N_atoms: in
     mpi_comm.send(obj=[nv + 1 + thread_len*i for i in range(thread_num)], dest=2, tag=MPI_TAGS.TO_ACCEPT)
     mpi_comm.send(obj=[nv + 2 + thread_len*i for i in range(thread_num)], dest=1, tag=MPI_TAGS.TO_ACCEPT)
 
+    mpi_comm.send(obj=params["data_processing_folder"], dest=2, tag=MPI_TAGS.SERV_DATA)
+    mpi_comm.send(obj=params["data_processing_folder"], dest=1, tag=MPI_TAGS.SERV_DATA)
+
     for i in range(thread_num):
         mpi_comm.send(obj=wd[str(i)], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
-        mpi_comm.send(obj=(N_atoms, bdims), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
-        tpl = (cwd, N_atoms, bdims, args.kmax, args.critical_size, args.timestep, args.dis)
-        mpi_comm.send(obj=tpl, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
+        mpi_comm.send(obj=params["dump_folder"], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA_1)
+        mpi_comm.send(obj=(params["N_atoms"], params["bdims"]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
+        # tpl = (params["N_atoms"], params["bdims"], params['kmax'], params['g'], params['time_step'], params['every'])
+        mpi_comm.send(obj=params, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
 
     return after_ditribution(cwd, mpi_comm, mpi_rank, mpi_size)
 
 
-def perform_one_threaded(sts: setts, args: argparse.Namespace, nv: int, N_atoms: int, bdims: npt.NDArray[np.float32], storages: Dict[str, int]):
+def perform_one_threaded(sts: setts, params: Dict, nv: int):
     cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
 
     thread_num = mpi_size - nv
     print(f"Thread num: {thread_num}")
-    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(storages, thread_num)
+    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params['storages'], thread_num)
     print("Distribution")
     print(json.dumps(wd, indent=4))
 
@@ -209,11 +197,13 @@ def perform_one_threaded(sts: setts, args: argparse.Namespace, nv: int, N_atoms:
         mpi_comm.send(obj=Role.one_thread, dest=i + nv, tag=MPI_TAGS.DISTRIBUTION)
 
     for i in range(thread_num):
-        mkl = (wd[str(i)]["ino"], wd[str(i)]["storages"])
+        mkl = (wd[str(i)]["no"], wd[str(i)]["storages"])
         mpi_comm.send(obj=mkl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_1)
-        mpi_comm.send(obj=(N_atoms, bdims), dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
-        tpl = (args.kmax, args.critical_size, args.timestep, args.dis)
-        mpi_comm.send(obj=tpl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_3)
+
+        # mpi_comm.send(obj=(N_atoms, bdims), dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
+        # tpl = (params['kmax'], params['g'], params['time_step'], params['every'])
+        # mpi_comm.send(obj=tpl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_3)
+        mpi_comm.send(obj=params, dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
 
     return after_ditribution(cwd, mpi_comm, mpi_rank, mpi_size)
 
@@ -225,27 +215,29 @@ def main(sts: setts):
     parser = argparse.ArgumentParser(description='Process some floats.')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
     parser.add_argument('--groupmode', action='store_true', help='Run in group-threaded mode')
-    parser.add_argument('-o', '--outfile', type=str, default="rdata.csv", help='File in which save obtained data')
-    parser.add_argument('-k', '--kmax', metavar='kmax', type=int, nargs='?', default=10, action='store', help='kmax')
-    parser.add_argument('-g', '--critical_size', metavar='g', type=int, nargs='?', default=19, action='store', help='Critical size')
-    parser.add_argument('-t', '--timestep', metavar='ts', type=float, nargs='?', default=0.005, action='store', help='Timestep')
-    parser.add_argument('-s', '--dis', metavar='dis', type=int, nargs='?', default=1000, action='store', help='Time between dump records')
-    parser.add_argument('storages', type=str, help='Folder in which search for .bp files')
     args = parser.parse_args()
 
     if args.debug:
         print("Envolved args:")
         print(args)
     else:
-        _storages: List[str] = json.loads(args.storages)  # type: dict
-        storages = storage_rsolve(cwd, _storages)
-        if not storage_check(cwd, storages):
-            raise RuntimeError("Storage check unsuccessfull")
-        N_atoms, bdims = bearbeit(cwd, storages)
+        stf = (cwd / ucs.data_file)
+        with open(stf, 'r') as fp:
+            son: Dict[str, Any] = json.load(fp)
+        _storages: List[str] = son["storages"]
+        storages = storage_rsolve(cwd / son["dump_folder"], _storages)
+        N_atoms, bdims = bearbeit(cwd / son["dump_folder"], storages)
+        son["N_atoms"] = N_atoms
+        son["Volume"] = np.prod(bdims)
+        son["dimensions"] = list(bdims)
+        son["storages"] = storages
+        with open(stf, 'w') as fp:
+            json.dump(son, fp)
+
         if args.groupmode:
-            return perform_group_run(sts, args, 3, N_atoms, bdims, storages)
+            return perform_group_run(sts, son, 3)
         else:
-            return perform_one_threaded(sts, args, 1, N_atoms, bdims, storages)
+            return perform_one_threaded(sts, son, 1)
 
 
 def mpi_goto(sts: setts):
@@ -276,11 +268,10 @@ def mpi_root(sts: setts):
     ret = MW.root_sanity(mpi_comm)
     if ret != 0:
         raise MPISanityError("MPI root sanity doesn't passed")
-        return ret
     else:
-        # print(f"MPI rank {mpi_rank} - root MPI thread, sanity pass, running main")
         print("Sanity: \U0001F7E2")
         return main(sts)
+    return ret
 
 
 def mpi_nonroot(sts: setts):

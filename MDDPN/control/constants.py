@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:16:01
+# Last modified: 16-04-2023 14:58:37
 
 from pathlib import Path
 
@@ -15,9 +15,9 @@ state_field = 'state'
 restart_field = 'restart_count'
 in_file_field = "in.file"
 jobs_list_field = "jobs"
-
+data_processing_folder = "data_processing"
 restarts_folder = "restarts"
-dump_folder = "dumps"
+
 state_file = 'state.json'
 sl_dir = "slinfo"
 default_job_name = "lammps"
@@ -31,7 +31,7 @@ sbatch_part = "medium"
 
 MDDPN_exec = "/scratch/perevoshchikyy/MD/MDDPN/launcher.py"
 sbatch_processing_node_count = 1
-sbatch_processing_part = "small"
+sbatch_processing_part = "test"
 
 Fslurm_directory_field = "slurm_directory"
 Frun_counter = "run_counter"
@@ -47,6 +47,7 @@ in_file_dir = "in_files"
 dumps_folder = "dumps"
 Fjobid = "sb_jobid"
 Frestart_files = 'restart_files'
+Frestart_every = "every"
 start_template_file = in_templates_dir / "START.template"
 
 time_criteria = 15 * 60

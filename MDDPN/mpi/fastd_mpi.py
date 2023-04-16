@@ -33,7 +33,7 @@ def proceed(sts: setts) -> Literal[0]:
     N: int
     bdims: npt.NDArray[np.float32]
     N, bdims = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
-    box = freud.box.Box.from_box(bdims)
+    box = freud.box.Box.from_box(np.array(bdims))
     reader_rank = mpi_rank - 1
     trt_rank = mpi_rank + 1
 

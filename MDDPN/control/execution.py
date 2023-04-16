@@ -6,17 +6,16 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 14:30:31
+# Last modified: 16-04-2023 14:57:55
 
 import re
 import shlex
 import argparse
 import subprocess as sb
 from pathlib import Path
-from typing import List, Dict
+from typing import Dict
 
 from . import constants as cs
-from .. import uw_constants as ucs
 
 
 def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
@@ -67,9 +66,9 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict) -> int:
+def perform_processing_run(cwd: Path, state: dict) -> int:
     sldir = Path(state[cs.Fslurm_directory_field])
-    tdir = sldir / ucs.data_processing_folder
+    tdir = sldir / cs.data_processing_folder
     tdir.mkdir(parents=True, exist_ok=True)
 
     jname = "MDDPN"
@@ -93,7 +92,7 @@ def perform_processing_run(cwd: Path, state: dict, df: List[str], params: dict) 
         fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
         fh.writelines(f"#SBATCH --partition={cs.sbatch_processing_part}\n")
         fh.writelines(
-            f"srun -u {cs.MDDPN_exec} -k {params['k']} -g {params['g']} '{df}'")
+            f"srun -u {cs.MDDPN_exec}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

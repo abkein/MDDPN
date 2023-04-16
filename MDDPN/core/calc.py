@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-04-2023 15:00:33
+# Last modified: 15-04-2023 23:29:30
 
 
 from typing import Union
@@ -69,5 +69,3 @@ def get_row(step: int, sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint3
 
 if __name__ == "__main__":
     pass
-
-# something

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 03:12:28
+# Last modified: 16-04-2023 14:54:43
 
 
 # TODO:
@@ -71,7 +71,7 @@ def main():
     parser_restart.add_argument('--no_auto', action='store_true', help='Don\'t run polling sbatch and don\'t auto restart')
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
-    parser_end.add_argument('--params', action='store', type=str, help='Post-processing parameters')
+    parser_end.add_argument('--params', action='store', type=str, default=None, help='Post-processing parameters')
     parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')
 
     args = parser.parse_args()

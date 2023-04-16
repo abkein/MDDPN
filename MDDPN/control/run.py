@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 01:28:48
+# Last modified: 16-04-2023 09:03:54
 
 import re
 from pathlib import Path
@@ -28,6 +28,7 @@ def run(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     if not args.test:
         sb_jobid = perform_run(cwd, state[cs.Frun_labels]['START']['0'][cs.Fin_file], state)
         state[cs.Frun_labels]['START']["0"][cs.Fjobid] = sb_jobid
+        state[cs.Frun_labels]['START'][cs.Fruns] = 1
 
         if not args.no_auto:
             run_polling(cwd, args, sb_jobid)
