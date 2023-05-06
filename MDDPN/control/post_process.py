@@ -6,13 +6,16 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 15:19:25
+# Last modified: 06-05-2023 22:40:11
 
 import json
 import argparse
 import warnings
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple
+
+import pandas as pd
+import numpy as np
 
 from .utils import states
 from . import constants as cs
@@ -46,6 +49,21 @@ def state_validate(cwd: Path, state: dict) -> bool:
     return fl
 
 
+def calc_xi(xilog: Path, temps: Path) -> Tuple[float, int, int]:
+    xist = pd.read_csv(xilog, header=None).to_numpy(dtype=np.int32).flatten()
+    tf = pd.read_csv(temps, header=None)
+
+    temp_time = tf[0].to_numpy(dtype=np.int32)
+    temp_temp = tf[1].to_numpy(dtype=np.float32)
+
+    temp1 = temp_temp[np.abs(temp_time - xist[0]) < 2][0]
+    temp2 = temp_temp[np.abs(temp_time - xist[1]) < 2][0]
+    # print(f"Temp1:{temp1},temp2:{temp2}")
+    # print(f"Time1:{xist[0]},time2:{xist[1]}")
+
+    return (float(np.abs((temp1 - temp2) / (xist[0] - xist[1]))), int(xist[0]), int(xist[1]))
+
+
 def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
     origin = cwd / "temperature.log"
     origin.rename("temperature.log.bak")
@@ -59,8 +77,11 @@ def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
             fout.write(line)
 
     if not (state_runs_check(state) and state_validate(cwd, state)):
-        print("Stopped")
+        print("Stopped, not valid state")
         return state
+
+    xi, step_before, step_after = calc_xi(cwd / "xi.log", target)
+    print(f"XI: {xi}")
 
     df = []
     rlabels = state[cs.Frun_labels]
@@ -72,6 +93,9 @@ def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
     if (stf := (cwd / ucs.data_file)).exists():
         with open(stf, 'r') as fp:
             son = json.load(fp)
+        son["xi"] = xi
+        son["step_before"] = step_before
+        son["step_after"] = step_after
         son["storages"] = df
         son["time_step"] = state["time_step"]
         son["every"] = state[cs.Frestart_every]
@@ -81,6 +105,9 @@ def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
     else:
         stf.touch()
         son = {
+            "step_before": step_before,
+            "step_after": step_after,
+            "xi": xi,
             "storages": df,
             "time_step": state["time_step"],
             "every": state[cs.Frestart_every],
@@ -90,7 +117,7 @@ def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
     with open(stf, 'w') as fp:
         json.dump(son, fp)
 
-    job_id = perform_processing_run(cwd, state)
+    job_id = perform_processing_run(cwd, state, args.params)
 
     state["post_process"] = job_id
 

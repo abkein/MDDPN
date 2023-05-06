@@ -6,12 +6,13 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 06-05-2023 22:01:25
+# Last modified: 06-05-2023 21:56:18
 
 from typing import Dict
-import csv
+from pathlib import Path
+# import csv
 
-import pandas as pd
+# import pandas as pd
 import numpy as np
 from numpy import typing as npt
 import freud
@@ -20,10 +21,11 @@ from . import adios2
 from .utils import setts
 from .mpiworks import MPI_TAGS
 from ..core.distribution import get_dist
-from ..core import calc
+# from ..core import calc
 
 
 def thread(sts: setts):
+    cwd: Path
     cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
 
@@ -32,30 +34,22 @@ def thread(sts: setts):
     ino, storages = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
 
     params = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_2)
+
     N_atoms: int = params["N_atoms"]
     bdims: npt.NDArray[np.float32] = params["dimensions"]
-    dt: float = params["time_step"]
-    dis: int = params["every"]
-
     box = freud.box.Box.from_box(bdims)
-    volume = box.volume
-    sizes: npt.NDArray[np.uint32] = np.arange(1, N_atoms + 1, dtype=np.uint64)
+    sizes = np.arange(1, N_atoms + 1, 1)
 
-    temperatures_mat = pd.read_csv(cwd / "temperature.log", header=None)
-    temptime = temperatures_mat[0].to_numpy(dtype=np.uint64)
-    temperatures = temperatures_mat[1].to_numpy(dtype=np.float64)
-
+    max_cluster_size = 0
     worker_counter = 0
     print(f"MPI rank {mpi_rank}, reader, storages: {storages}")
-    output_csv_fp = (cwd / params["data_processing_folder"] / f"rdata.{mpi_rank}.csv").as_posix()
-    ntb_fp = (cwd / params["data_processing_folder"] / f"ntb.{mpi_rank}.bp").as_posix()
-    with adios2.open(ntb_fp, 'w') as adout, open(output_csv_fp, "w") as csv_file:  # type: ignore
-        writer = csv.writer(csv_file, delimiter=',')
+    ntb_fp: Path = cwd / params["data_processing_folder"] / f"ntb.{mpi_rank}.bp"
+    with adios2.open(ntb_fp.as_posix(), 'w') as adout:  # type: ignore
         storage: str
         for storage in storages:
             storage_fp = (cwd / params["dump_folder"] / storage).as_posix()
             with adios2.open(storage_fp, 'r') as reader:  # type: ignore
-                total_steps = reader.steps()
+                # total_steps = reader.steps()
                 i = 0
                 for step in reader:
                     if i < storages[storage]["begin"]:  # type: ignore
@@ -71,11 +65,7 @@ def thread(sts: setts):
                     adout.write("step", np.array(stepnd))  # type: ignore
                     adout.write("dist", dist, dist.shape, np.full(len(dist.shape), 0), dist.shape, end_step=True)  # type: ignore
 
-                    temp = temperatures[np.abs(temptime - int(stepnd * dis)) <= 1][0]
-                    tow = calc.get_row(stepnd, sizes, dist, temp, N_atoms, volume, dt, dis)
-
-                    writer.writerow(tow)
-                    csv_file.flush()
+                    max_cluster_size = np.argmax(sizes[dist != 0])
 
                     worker_counter += 1
                     mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.STATE)
@@ -86,11 +76,12 @@ def thread(sts: setts):
 
                     i += 1
 
-                    if step.current_step() == total_steps - 1:
-                        print(f"MPI rank {mpi_rank}, reader, reached end of storage, {storage, i, worker_counter}")
-                        break
+                    # if step.current_step() == total_steps - 1:
+                    #     print(f"MPI rank {mpi_rank}, reader, reached end of storage, {storage, i, worker_counter}")
+                    #     break
 
     mpi_comm.send(obj=-1, dest=0, tag=MPI_TAGS.STATE)
+    mpi_comm.send(obj=(ntb_fp, max_cluster_size), dest=0, tag=MPI_TAGS.SERV_DATA_3)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 14:57:55
+# Last modified: 06-05-2023 22:40:31
 
+import json
 import re
 import shlex
 import argparse
@@ -66,7 +67,7 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: dict) -> int:
+def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:
     sldir = Path(state[cs.Fslurm_directory_field])
     tdir = sldir / cs.data_processing_folder
     tdir.mkdir(parents=True, exist_ok=True)
@@ -75,6 +76,12 @@ def perform_processing_run(cwd: Path, state: dict) -> int:
 
     job_file = tdir / f"{jname}.job"
     job_file.touch()
+
+    params_line = ''
+    if params is not None:
+        params = json.loads(params)
+        for key, value in params.items():
+            params_line += f"--{key}={value} "
 
     with job_file.open('w') as fh:
         fh.writelines("#!/usr/bin/env bash\n")
@@ -92,7 +99,7 @@ def perform_processing_run(cwd: Path, state: dict) -> int:
         fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
         fh.writelines(f"#SBATCH --partition={cs.sbatch_processing_part}\n")
         fh.writelines(
-            f"srun -u {cs.MDDPN_exec}")
+            f"srun -u {cs.MDDPN_exec} {params_line}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

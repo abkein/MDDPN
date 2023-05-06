@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 15:08:08
+# Last modified: 05-05-2023 14:43:39
 
 
 import os
@@ -31,12 +31,9 @@ def treat_mpi(sts: setts) -> Literal[0]:
     cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
     proc_rank = mpi_rank - 1
-    # N_atoms, bdims, kmax, g, dt, dis = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
     params: Dict[str, Any] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
     N_atoms: int = params["N_atoms"]
     bdims: npt.NDArray[np.float32] = params["dimensions"]
-    kmax: int = params["kmax"]
-    g: int = params["g"]
     dt: float = params["time_step"]
     dis: int = params["every"]
 
@@ -55,7 +52,7 @@ def treat_mpi(sts: setts) -> Literal[0]:
 
         try:
             temp = temperatures[np.abs(temptime - int(step * dis)) <= 1][0]
-            tow = calc.get_row(step, sizes, dist, temp, N_atoms, kmax, g, volume, dt, dis)
+            tow = calc.get_row(step, sizes, dist, temp, N_atoms, volume, dt, dis)
         except Exception as e:
             etime = time.time()
             eid = round(etime) * mpi_rank

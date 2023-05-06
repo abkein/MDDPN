@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 23:29:30
+# Last modified: 05-05-2023 14:39:47
 
 
 from typing import Union
@@ -17,12 +17,15 @@ from numpy import typing as npt
 from .props import sigma, nl
 
 
+float = np.floating
+
+
 def mean_size(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32]) -> float:
     return np.sum(sizes * dist) / np.sum(dist)  # type: ignore
 
 
-def condensation_degree(dist: npt.NDArray[np.uint32], N: int) -> float:
-    return 1 - dist[0] / N
+def condensation_degree(dist: npt.NDArray[np.uint32], sizes: npt.NDArray[np.uint32], N: int, km: int) -> float:
+    return 1 - np.sum(sizes[:km] * dist[:km]) / N
 
 
 def maxsize(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32]) -> int:
@@ -30,7 +33,8 @@ def maxsize(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32]) -> int:
 
 
 def nvv(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: float, kmin: int) -> float:
-    return np.sum(dist[sizes <= kmin] * sizes[sizes <= kmin]) / volume  # type: ignore
+    # type: ignore
+    return np.sum(dist[sizes <= kmin] * sizes[sizes <= kmin]) / volume
 
 
 def nd(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: float, kmin: int) -> float:
@@ -52,18 +56,25 @@ def nvs(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: flo
     return num / denum
 
 
-def get_row(step: int, sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], temp: float, N_atoms: int, kmax: int, g: int, volume: float, dt: float, dis: int) -> npt.NDArray[np.float32]:
-    tow = np.zeros(10, dtype=np.float32)
-    tow[0] = round(step * dt * dis)
-    tow[1] = mean_size(sizes, dist)
-    tow[2] = maxsize(sizes, dist)
-    tow[3] = condensation_degree(dist, N_atoms)
-    tow[4] = nvv(sizes, dist, volume, kmax)
-    tow[5] = nd(sizes, dist, volume, g)
-    tow[6] = len(dist[dist > 1])
-    tow[7] = temp
-    tow[8] = step
-    tow[9] = np.sum(dist[g-1:])
+def get_row(step: int, sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], temp: float, N_atoms: int, volume: float, dt: float, dis: int) -> npt.NDArray[np.float32]:
+    km: int = 0
+    eps = 0.9
+
+    ld = np.array([np.sum(sizes[:i]*dist[:i]) / N_atoms for i in range(1, len(dist))], dtype=np.float32)
+    km = np.argmin(np.abs(ld - eps))
+
+    tow = np.zeros(6, dtype=np.float32)
+    tow[0] = step
+    tow[1] = round(step * dt * dis)
+    tow[2] = km
+    tow[3] = condensation_degree(dist, sizes, N_atoms, km)
+    tow[4] = nvv(sizes, dist, volume, km)
+    tow[5] = temp
+    # tow[1] = mean_size(sizes, dist)
+    # tow[2] = maxsize(sizes, dist)
+    # tow[5] = nd(sizes, dist, volume, g)
+    # tow[6] = len(dist[dist > 1])
+    # tow[9] = np.sum(dist[g-1:])
     return tow
 
 

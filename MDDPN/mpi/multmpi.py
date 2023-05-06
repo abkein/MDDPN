@@ -6,10 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 15:06:32
+# Last modified: 07-05-2023 00:41:22
 
 
 import os
+import csv
 import time
 import json
 import argparse
@@ -35,6 +36,7 @@ from . import fastd_mpi as fd
 from . import treat_mpi as treat
 from .mpiworks import MPI_TAGS, MPISanityError
 from .utils import setts, MPIComm
+from . import matrice
 
 from .. import uw_constants as ucs
 
@@ -45,6 +47,9 @@ class Role(Enum):
     treater = 2
     kill = 3
     one_thread = 4
+    csvWriter = 5
+    ad_mpi_writer = 6
+    matr = 7
 
 
 def bearbeit(folder: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[np.float32]]:
@@ -106,7 +111,8 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
     return wd
 
 
-def after_ditribution(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int):
+def after_ditribution(sts: setts, m: int):
+    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
     mpi_comm.Barrier()
     print(f"MPI rank {mpi_rank}, barrier off")
     states = {}
@@ -128,32 +134,35 @@ def after_ditribution(cwd: Path, mpi_comm: MPIComm, mpi_rank: int, mpi_size: int
     fl = True
     start = time.time()
     while fl:
-        for i in range(1, mpi_size):
+        for i in range(m, mpi_size):
             if mpi_comm.iprobe(source=i, tag=MPI_TAGS.STATE):
                 tstate = mpi_comm.recv(source=i, tag=MPI_TAGS.STATE)
                 if tstate == -1:
                     completed_threads.append(i)
                     print(f"MPI ROOT, rank {i} has completed")
-                    if len(completed_threads) == mpi_size - 3:
+                    if len(completed_threads) == mpi_size - m:
                         with open(cwd / "st.json", "w") as fp:
                             json.dump(states, fp)
                         fl = False
                         break
                 else:
                     states[str(i)]['state'] = tstate
-            if time.time() - start > 20:
-                with open(cwd / "st.json", "w") as fp:
-                    json.dump(states, fp)
-                start = time.time()
+        if time.time() - start > 20:
+            with open(cwd / "st.json", "w") as fp:
+                json.dump(states, fp)
+            start = time.time()
+    for i in range(1, m):
+        mpi_comm.send(obj=-1, dest=i, tag=MPI_TAGS.COMMAND)
     print("MPI ROOT: exiting...")
-    mpi_comm.send(obj=-1, dest=1, tag=MPI_TAGS.COMMAND)
-    mpi_comm.send(obj=-1, dest=2, tag=MPI_TAGS.COMMAND)
 
     return 0
 
 
 def perform_group_run(sts: setts, params: Dict, nv: int):
-    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    mpi_comm, mpi_size = sts.mpi_comm, sts.mpi_size
+
+    mpi_comm.send(obj=Role.csvWriter, dest=1, tag=MPI_TAGS.DISTRIBUTION)
+    mpi_comm.send(obj=Role.ad_mpi_writer, dest=2, tag=MPI_TAGS.DISTRIBUTION)
 
     thread_len = 3
     thread_num = floor((mpi_size - nv) / thread_len)
@@ -178,14 +187,13 @@ def perform_group_run(sts: setts, params: Dict, nv: int):
         mpi_comm.send(obj=wd[str(i)], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
         mpi_comm.send(obj=params["dump_folder"], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA_1)
         mpi_comm.send(obj=(params["N_atoms"], params["bdims"]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
-        # tpl = (params["N_atoms"], params["bdims"], params['kmax'], params['g'], params['time_step'], params['every'])
         mpi_comm.send(obj=params, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
 
-    return after_ditribution(cwd, mpi_comm, mpi_rank, mpi_size)
+    return after_ditribution(sts, 3)
 
 
 def perform_one_threaded(sts: setts, params: Dict, nv: int):
-    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    mpi_comm, mpi_size = sts.mpi_comm, sts.mpi_size
 
     thread_num = mpi_size - nv
     print(f"Thread num: {thread_num}")
@@ -199,13 +207,112 @@ def perform_one_threaded(sts: setts, params: Dict, nv: int):
     for i in range(thread_num):
         mkl = (wd[str(i)]["no"], wd[str(i)]["storages"])
         mpi_comm.send(obj=mkl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_1)
-
-        # mpi_comm.send(obj=(N_atoms, bdims), dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
-        # tpl = (params['kmax'], params['g'], params['time_step'], params['every'])
-        # mpi_comm.send(obj=tpl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_3)
         mpi_comm.send(obj=params, dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
 
-    return after_ditribution(cwd, mpi_comm, mpi_rank, mpi_size)
+    return after_ditribution(sts, 1)
+
+
+def gen_matrix(cwd: Path, params: Dict, storages: List[Path], cut: int):
+    output_csv_fp = cwd / params["data_processing_folder"] / "matrice.csv"
+    with open(output_csv_fp, "w") as csv_file:
+        writer = csv.writer(csv_file, delimiter=',')
+        for storage in storages:
+            with adios2.open(storage.as_posix(), 'r') as reader:  # type: ignore"
+                for step in reader:
+                    stee: int = step.read('step')
+                    dist = step.read('dist')
+                    writer.writerow(np.array([stee, dist[:cut]]).flatten())
+
+
+def after_new(sts: setts, m: int):
+    cwd, mpi_comm, mpi_rank, mpi_size = sts.cwd, sts.mpi_comm, sts.mpi_rank, sts.mpi_size
+    mpi_comm.Barrier()
+    print(f"MPI rank {mpi_rank}, barrier off")
+    states = {}
+
+    response_array = []
+    while True:
+        for i in range(1, mpi_size):
+            if mpi_comm.iprobe(source=i, tag=MPI_TAGS.ONLINE):
+                resp = mpi_comm.recv(source=i, tag=MPI_TAGS.ONLINE)
+                print(f"Recieved from {i}: {resp}")
+                states[str(i)] = {}
+                states[str(i)]['name'] = resp
+                response_array.append((i, resp))
+        if len(response_array) == mpi_size - 1:
+            break
+    mpi_comm.Barrier()
+    print(f"MPI rank {mpi_rank}, second barrier off")
+    completed_threads = []
+    fl = True
+    start = time.time()
+    while fl:
+        for i in range(m, mpi_size):
+            if mpi_comm.iprobe(source=i, tag=MPI_TAGS.STATE):
+                tstate: int = mpi_comm.recv(source=i, tag=MPI_TAGS.STATE)
+                if tstate == -1:
+                    completed_threads.append(i)
+                    print(f"MPI ROOT, rank {i} has been completed")
+                    if len(completed_threads) == mpi_size - m:
+                        with open(cwd / "st.json", "w") as fp:
+                            json.dump(states, fp)
+                        fl = False
+                        break
+                else:
+                    states[str(i)]['state'] = tstate
+        if time.time() - start > 20:
+            with open(cwd / "st.json", "w") as fp:
+                json.dump(states, fp)
+            start = time.time()
+    for i in range(1, m):
+        mpi_comm.send(obj=-1, dest=i, tag=MPI_TAGS.COMMAND)
+
+    storages = []
+    max_sizes = []
+    for i in range(m, mpi_size):
+        storage: Path
+        max_cluster_size: int
+        storage, max_cluster_size = mpi_comm.recv(source=i, tag=MPI_TAGS.SERV_DATA_3)
+        storages.append(storage)
+        max_sizes.append(max_cluster_size)
+
+    storages = [(i, storage) for i, storage in enumerate(storages)]
+    storages.sort(key=lambda x: x[1])
+    storages = [storage[1] for storage in storages]
+
+    stf = (cwd / ucs.data_file)
+    with open(stf, 'r') as fp:
+        son: Dict[str, Any] = json.load(fp)
+
+    son["mat_storages"] = [storage.as_posix() for storage in storages]
+
+    with open(stf, 'w') as fp:
+        json.dump(son, fp)
+
+    gen_matrix(cwd, son, storages, max(max_cluster_size))
+
+    print("MPI ROOT: exiting...")
+    return 0
+
+
+def perform_new(sts: setts, params: Dict, nv: int):
+    mpi_comm, mpi_size = sts.mpi_comm, sts.mpi_size
+
+    thread_num = mpi_size - nv
+    print(f"Thread num: {thread_num}")
+    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params['storages'], thread_num)
+    print("Distribution")
+    print(json.dumps(wd, indent=4))
+
+    for i in range(thread_num):
+        mpi_comm.send(obj=Role.matr, dest=i + nv, tag=MPI_TAGS.DISTRIBUTION)
+
+    for i in range(thread_num):
+        mkl = (wd[str(i)]["no"], wd[str(i)]["storages"])
+        mpi_comm.send(obj=mkl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_1)
+        mpi_comm.send(obj=params, dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
+
+    return after_new(sts, 1)
 
 
 def main(sts: setts):
@@ -214,7 +321,7 @@ def main(sts: setts):
 
     parser = argparse.ArgumentParser(description='Process some floats.')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
-    parser.add_argument('--groupmode', action='store_true', help='Run in group-threaded mode')
+    parser.add_argument('--mode', action='store', type=int, default=3, help='Mode to run')
     args = parser.parse_args()
 
     if args.debug:
@@ -234,10 +341,12 @@ def main(sts: setts):
         with open(stf, 'w') as fp:
             json.dump(son, fp)
 
-        if args.groupmode:
+        if args.mode == 1:
             return perform_group_run(sts, son, 3)
-        else:
+        elif args.mode == 2:
             return perform_one_threaded(sts, son, 1)
+        elif args.mode == 3:
+            return perform_new(sts, son, 1)
 
 
 def mpi_goto(sts: setts):
@@ -259,6 +368,15 @@ def mpi_goto(sts: setts):
     elif mrole == Role.one_thread:
         mpi_comm.send(obj="one_thread", dest=0, tag=MPI_TAGS.ONLINE)
         return one_threaded.thread(sts)
+    elif mrole == Role.csvWriter:
+        mpi_comm.send(obj="csvWriter", dest=0, tag=MPI_TAGS.ONLINE)
+        return MW.csvWriter(sts)
+    elif mrole == Role.ad_mpi_writer:
+        mpi_comm.send(obj="ad_mpi_writer", dest=0, tag=MPI_TAGS.ONLINE)
+        return MW.ad_mpi_writer(sts)
+    elif mrole == Role.matr:
+        mpi_comm.send(obj="matr", dest=0, tag=MPI_TAGS.ONLINE)
+        return matrice.thread(sts)
     else:
         raise RuntimeError(f"Cannot find role {mrole}. Fatal error")
 
@@ -281,14 +399,14 @@ def mpi_nonroot(sts: setts):
     if ret != 0:
         raise MPISanityError(f"MPI nonroot sanity doesn't passed, rank {mpi_rank}")
         return ret
-    elif mpi_rank == 1:
-        mpi_comm.send(obj="csvWriter", dest=0, tag=MPI_TAGS.ONLINE)
-        return MW.csvWriter(sts)
-    elif mpi_rank == 2:
-        mpi_comm.send(obj="ad_mpi_writer", dest=0, tag=MPI_TAGS.ONLINE)
-        return MW.ad_mpi_writer(sts)
     else:
         return mpi_goto(sts)
+    # elif mpi_rank == 1:
+    #     mpi_comm.send(obj="csvWriter", dest=0, tag=MPI_TAGS.ONLINE)
+    #     return MW.csvWriter(sts)
+    # elif mpi_rank == 2:
+    #     mpi_comm.send(obj="ad_mpi_writer", dest=0, tag=MPI_TAGS.ONLINE)
+    #     return MW.ad_mpi_writer(sts)
 
 
 def mpi_wrap():

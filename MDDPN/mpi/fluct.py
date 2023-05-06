@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 16:51:38
+# Last modified: 30-04-2023 11:09:36
 
 # TODO:
 # Change parser description
@@ -30,17 +30,17 @@ def rms(arr: npt.NDArray[np.uint32]) -> npt.NDArray[np.float32]:
     N = len(arr)
     average = np.sum(arr, axis=0) / N
     barr = np.sum((average - arr[:])**2, axis=0)
-    print(barr)
+    # print(barr)
     return np.sqrt(barr / N)
 
 
-def process(file: Path, hms: int, lc: int):
-    with adios2.open(file.as_posix(), 'r') as adout:  # type: ignore
-        for step in adout:
-            dist: npt.NDArray[np.uint32] = step.read("dist")
-            break
+def process(file: Path, hms: int, lc: int, cut: int = 100):
+    # with adios2.open(file.as_posix(), 'r') as adout:  # type: ignore
+    #     for step in adout:
+    #         dist: npt.NDArray[np.uint32] = step.read("dist")
+    #         break
 
-    buffer: npt.NDArray[np.uint32] = np.zeros((hms, len(dist)), dtype=np.uint32)  # type: ignore
+    buffer: npt.NDArray[np.uint32] = np.zeros((hms, cut), dtype=np.uint32)  # type: ignore
 
     with adios2.open(file.as_posix(), 'r') as adout:  # type: ignore
         total_steps = adout.steps()
@@ -51,6 +51,7 @@ def process(file: Path, hms: int, lc: int):
             counter = lc
             for step in adout:
                 dist: npt.NDArray[np.uint32] = step.read("dist")
+                dist = dist[:cut]
 
                 buffer[counter, :] = dist
 

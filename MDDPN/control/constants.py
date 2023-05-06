@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 14:58:37
+# Last modified: 16-04-2023 19:07:01
 
 from pathlib import Path
 
@@ -31,7 +31,7 @@ sbatch_part = "medium"
 
 MDDPN_exec = "/scratch/perevoshchikyy/MD/MDDPN/launcher.py"
 sbatch_processing_node_count = 1
-sbatch_processing_part = "test"
+sbatch_processing_part = "small"
 
 Fslurm_directory_field = "slurm_directory"
 Frun_counter = "run_counter"

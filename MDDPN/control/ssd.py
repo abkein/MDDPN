@@ -72,7 +72,7 @@ def main():
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
     parser_end.add_argument('--params', action='store', type=str, default=None, help='Post-processing parameters')
-    parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')
+    # parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')
 
     args = parser.parse_args()
     cwd = Path.cwd()
