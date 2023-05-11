@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 07-05-2023 00:41:22
+# Last modified: 08-05-2023 23:04:50
 
 
 import os
@@ -35,7 +35,7 @@ from . import mpiworks as MW
 from . import fastd_mpi as fd
 from . import treat_mpi as treat
 from .mpiworks import MPI_TAGS, MPISanityError
-from .utils import setts, MPIComm
+from .utils import setts
 from . import matrice
 
 from .. import uw_constants as ucs
@@ -217,11 +217,11 @@ def gen_matrix(cwd: Path, params: Dict, storages: List[Path], cut: int):
     with open(output_csv_fp, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         for storage in storages:
-            with adios2.open(storage.as_posix(), 'r') as reader:  # type: ignore"
+            with adios2.open(storage.as_posix(), 'r') as reader:  # type: ignore
                 for step in reader:
                     stee: int = step.read('step')
                     dist = step.read('dist')
-                    writer.writerow(np.array([stee, dist[:cut]]).flatten())
+                    writer.writerow(np.hstack([stee, dist[:cut]]).astype(dtype=np.uint32).flatten())
 
 
 def after_new(sts: setts, m: int):
@@ -273,10 +273,10 @@ def after_new(sts: setts, m: int):
         storage: Path
         max_cluster_size: int
         storage, max_cluster_size = mpi_comm.recv(source=i, tag=MPI_TAGS.SERV_DATA_3)
-        storages.append(storage)
+        storages.append((i, storage))
         max_sizes.append(max_cluster_size)
 
-    storages = [(i, storage) for i, storage in enumerate(storages)]
+    # storages = [(i, storage) for i, storage in enumerate(storages)]
     storages.sort(key=lambda x: x[1])
     storages = [storage[1] for storage in storages]
 
@@ -289,7 +289,7 @@ def after_new(sts: setts, m: int):
     with open(stf, 'w') as fp:
         json.dump(son, fp)
 
-    gen_matrix(cwd, son, storages, max(max_cluster_size))
+    gen_matrix(cwd, son, storages, max(max_sizes))
 
     print("MPI ROOT: exiting...")
     return 0
@@ -319,9 +319,9 @@ def main(sts: setts):
     cwd = sts.cwd
     print("Started at ", datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
 
-    parser = argparse.ArgumentParser(description='Process some floats.')
+    parser = argparse.ArgumentParser(description='Generate cluster distribution matrix from ADIOS2 LAMMPS data.')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
-    parser.add_argument('--mode', action='store', type=int, default=3, help='Mode to run')
+    parser.add_argument('--mode', action='store', type=int, default=3, help='Mode to run')  # type: ignore
     args = parser.parse_args()
 
     if args.debug:

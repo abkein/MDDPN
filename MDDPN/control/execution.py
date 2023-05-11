@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 06-05-2023 22:40:31
+# Last modified: 09-05-2023 20:33:14
 
 import json
 import re
@@ -67,7 +67,7 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:
+def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:  # type: ignore
     sldir = Path(state[cs.Fslurm_directory_field])
     tdir = sldir / cs.data_processing_folder
     tdir.mkdir(parents=True, exist_ok=True)
@@ -79,8 +79,8 @@ def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:
 
     params_line = ''
     if params is not None:
-        params = json.loads(params)
-        for key, value in params.items():
+        param_dict = json.loads(params)
+        for key, value in param_dict.items():
             params_line += f"--{key}={value} "
 
     with job_file.open('w') as fh:

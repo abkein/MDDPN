@@ -6,10 +6,14 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-04-2023 15:01:11
+# Last modified: 09-05-2023 19:03:57
 
 
+import numpy as np
 from typing import Union, Iterable
+
+float = float | np.floating
+# int = int | np.intp
 
 
 def is_iter(arr: Union[Iterable[float], float]) -> bool:

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 09:03:54
+# Last modified: 09-05-2023 20:35:23
 
 import re
 from pathlib import Path
@@ -111,7 +111,13 @@ def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     for label_c in reversed(state[cs.Flabels_list]):
         if fl:
             if '0' in rlabels[label_c]:
-                state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]["last_step"] = last_file
+                # print("state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]['last_step'] = last_file")
+                # print(f"state[{cs.Frun_labels}][{label_c}][str(rlabels[{label_c}][{cs.Fruns}])]['last_step'] = {last_file}")
+                # print(f"{state[cs.Frun_labels]}[{label_c}][str({rlabels[label_c][cs.Fruns]})]['last_step'] = {last_file}")
+                # print(f"{state[cs.Frun_labels][label_c]}[{str(rlabels[label_c][cs.Fruns])}]['last_step'] = {last_file}")
+                # print(f"{state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]}['last_step'] = {last_file}")
+                # print(f"{state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]['last_step']} = {last_file}")
+                state[cs.Frun_labels][label_c][f"{rlabels[label_c][cs.Fruns]}"]["last_step"] = last_file
                 break
         elif label_c == current_label:
             fl = True

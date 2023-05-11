@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 06-05-2023 22:40:11
+# Last modified: 07-05-2023 12:14:39
 
 import json
 import argparse
@@ -81,6 +81,7 @@ def end(cwd: Path, state: Dict, args: argparse.Namespace) -> Dict:
         return state
 
     xi, step_before, step_after = calc_xi(cwd / "xi.log", target)
+    xi = xi / state["time_step"]
     print(f"XI: {xi}")
 
     df = []
