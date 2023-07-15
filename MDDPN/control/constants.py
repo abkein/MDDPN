@@ -49,6 +49,7 @@ Fjobid = "sb_jobid"
 Frestart_files = 'restart_files'
 Frestart_every = "every"
 start_template_file = in_templates_dir / "START.template"
+special_restarts_folder = "special_restarts"
 
 time_criteria = 15 * 60
 

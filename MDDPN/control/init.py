@@ -138,6 +138,9 @@ def check_required_fs(cwd: Path):
     if (cwd / cs.data_processing_folder).exists():
         raise FileExistsError(f"Directory {cs.data_processing_folder} already exists")
     (cwd / cs.data_processing_folder).mkdir()
+    if (cwd / cs.special_restarts_folder).exists():
+        raise FileExistsError(f"Directory {cs.special_restarts_folder} already exists")
+    (cwd / cs.special_restarts_folder).mkdir()
     return True
 
 

@@ -6,9 +6,10 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-05-2023 20:35:23
+# Last modified: 15-07-2023 13:43:21
 
 import re
+import shutil
 from pathlib import Path
 from typing import List, Dict, Tuple
 from argparse import Namespace as argNamespace
@@ -85,6 +86,18 @@ def max_step(state: Dict) -> int:
     return max(fff)
 
 
+def restart_cleanup(cwd: Path, state: Dict, fl: int):
+    rf: Path = cwd / cs.restarts_folder
+    filename = state[cs.Frestart_files] + str(fl)
+    to_save: Path = rf / filename
+    temp_file: Path = cwd / filename
+    shutil.copy(to_save, temp_file)
+    for file in rf.iterdir():
+        file.unlink()
+    shutil.copy(temp_file, to_save)
+    temp_file.unlink()
+
+
 def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     if states(state[cs.state_field]) != states.started and states(state[cs.state_field]) != states.restarted:
         raise LogicError("Folder isn't properly initialized")
@@ -92,6 +105,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
         last_file = find_last(cwd)
     else:
         last_file = args.step
+    restart_cleanup(cwd, state, last_file)
     if states(state[cs.state_field]) == states.started:
         state[cs.restart_field] = 1
         state[cs.state_field] = states.restarted
@@ -111,12 +125,6 @@ def restart(cwd: Path, state: Dict, args: argNamespace) -> Dict:
     for label_c in reversed(state[cs.Flabels_list]):
         if fl:
             if '0' in rlabels[label_c]:
-                # print("state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]['last_step'] = last_file")
-                # print(f"state[{cs.Frun_labels}][{label_c}][str(rlabels[{label_c}][{cs.Fruns}])]['last_step'] = {last_file}")
-                # print(f"{state[cs.Frun_labels]}[{label_c}][str({rlabels[label_c][cs.Fruns]})]['last_step'] = {last_file}")
-                # print(f"{state[cs.Frun_labels][label_c]}[{str(rlabels[label_c][cs.Fruns])}]['last_step'] = {last_file}")
-                # print(f"{state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]}['last_step'] = {last_file}")
-                # print(f"{state[cs.Frun_labels][label_c][str(rlabels[label_c][cs.Fruns])]['last_step']} = {last_file}")
                 state[cs.Frun_labels][label_c][f"{rlabels[label_c][cs.Fruns]}"]["last_step"] = last_file
                 break
         elif label_c == current_label:
