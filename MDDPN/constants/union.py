@@ -6,11 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 10:41:54
+# Last modified: 25-07-2023 15:31:06
 
-
-data_file = 'data.json'
-
-
-if __name__ == "__main__":
-    pass
+time_step: str = "time_step"
+restart_every: str = "every"

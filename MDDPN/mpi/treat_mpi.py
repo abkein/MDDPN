@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-05-2023 14:43:39
+# Last modified: 25-07-2023 15:24:03
 
 
 import os
@@ -25,6 +25,7 @@ import pandas as pd
 from .utils import setts
 from ..core import calc
 from .mpiworks import MPI_TAGS
+from .. import constants as cs
 
 
 def treat_mpi(sts: setts) -> Literal[0]:
@@ -32,16 +33,16 @@ def treat_mpi(sts: setts) -> Literal[0]:
     mpi_comm.Barrier()
     proc_rank = mpi_rank - 1
     params: Dict[str, Any] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
-    N_atoms: int = params["N_atoms"]
-    bdims: npt.NDArray[np.float32] = params["dimensions"]
-    dt: float = params["time_step"]
-    dis: int = params["every"]
+    N_atoms: int = params[cs.cf.N_atoms]
+    bdims: npt.NDArray[np.float32] = params[cs.cf.dimensions]
+    dt: float = params[cs.cf.time_step]
+    dis: int = params[cs.cf.every]
 
     box = freud.box.Box.from_box(np.array(bdims))
     volume = box.volume
     sizes: npt.NDArray[np.uint32] = np.arange(1, N_atoms + 1, dtype=np.uint64)
 
-    temperatures = pd.read_csv(cwd / "temperature.log", header=None)
+    temperatures = pd.read_csv(cwd / cs.files.temperature, header=None)
     temptime = temperatures[0].to_numpy(dtype=np.uint64)
     temperatures = temperatures[1].to_numpy(dtype=np.float64)
 
@@ -51,8 +52,9 @@ def treat_mpi(sts: setts) -> Literal[0]:
         step, dist = mpi_comm.recv(source=proc_rank, tag=MPI_TAGS.DATA)
 
         try:
-            temp = temperatures[np.abs(temptime - int(step * dis)) <= 1][0]
-            tow = calc.get_row(step, sizes, dist, temp, N_atoms, volume, dt, dis)
+            km = 10
+            temp = temperatures[np.abs(temptime - int(step * dis)) <= 1][0]  # type: ignore
+            tow = calc.get_row(step, sizes, dist, temp, N_atoms, volume, dt, dis, km)
         except Exception as e:
             etime = time.time()
             eid = round(etime) * mpi_rank

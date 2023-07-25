@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:29:41
+# Last modified: 25-07-2023 12:16:17
 
 import re
 import sys
@@ -19,10 +19,10 @@ from typing import Tuple
 from pathlib import Path
 from datetime import datetime
 
-from . import constants as cs
+from .. import constants as cs
 
 
-time_criteria = cs.time_criteria
+time_criteria = cs.params.time_criteria
 
 
 class SStates(str, Enum):
@@ -117,7 +117,7 @@ def loop(cwd: Path, args: argparse.Namespace):
     last_state = SStates.RUNNING
     last_state_time = time.time()
     logfile = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
-    logfile = cwd / cs.sl_dir / logfile
+    logfile = cwd / cs.folders.sl / logfile
     with logfile.open("w") as f:
         f.writelines(f"{tm()}: Started main loop\n")
     while True:

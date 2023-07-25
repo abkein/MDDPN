@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:10:49
+# Last modified: 25-07-2023 12:51:54
 
 import json
 import argparse
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Generator
 from contextlib import contextmanager
 
-from . import constants as cs
+from .. import constants as cs
 
 
 class states(str, Enum):
@@ -26,6 +26,12 @@ class states(str, Enum):
     comleted = "comleted"
     cluster_analysis_comleted = "cluster_analysis_comleted"
     data_obtained = "data_obtained"
+
+
+class STRNodes(str, Enum):
+    HOST = 'host'
+    ANGR = 'angr'
+    ALL = 'all'
 
 
 class LogicError(Exception):
@@ -46,12 +52,13 @@ def com_set(cwd: Path, args: argparse.Namespace):
 
 @contextmanager
 def load_state(cwd) -> Generator:
-    if not (cwd / cs.state_file).exists():
-        raise FileNotFoundError(f"State file '{cs.state_file}' not found")
-    with (cwd / cs.state_file).open('r') as f:
+    stf = cwd / cs.files.state
+    if not stf.exists():
+        raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
+    with stf.open('r') as f:
         state = json.load(f)
     try:
         yield state
     finally:
-        with (cwd / cs.state_file).open('w') as f:
+        with stf.open('w') as f:
             json.dump(state, f)

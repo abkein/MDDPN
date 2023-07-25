@@ -6,17 +6,19 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-05-2023 20:33:14
+# Last modified: 25-07-2023 12:24:09
 
 import json
 import re
 import shlex
 import argparse
+import warnings
 import subprocess as sb
 from pathlib import Path
 from typing import Dict
 
-from . import constants as cs
+from .. import constants as cs
+from .utils import STRNodes
 
 
 def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
@@ -27,12 +29,12 @@ def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
 
 
 def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
-    sldir = Path(state[cs.Fslurm_directory_field])
-    tdir = sldir / str(state[cs.Frun_counter])
+    sldir = Path(state[cs.sf.slurm_directory])
+    tdir = sldir / str(state[cs.sf.run_counter])
     tdir.mkdir(parents=True, exist_ok=True)
-    state[cs.Frun_counter] += 1
+    state[cs.sf.run_counter] += 1
 
-    jname = cs.default_job_name
+    jname = cs.params.default_job_name
 
     job_file = tdir / f"{jname}.job"
     job_file.touch()
@@ -49,10 +51,10 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
         fh.writelines("#SBATCH --mail-user=perevoshchikyy@mpei.ru\n")
         fh.writelines("#SBATCH --begin=now\n")
 
-        fh.writelines(f"#SBATCH --nodes={cs.sbatch_nodes}\n")
-        fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
-        fh.writelines(f"#SBATCH --partition={cs.sbatch_part}\n")
-        fh.writelines(f"srun -u {cs.lammps_exec} -in {cs.in_file_dir}/{in_file_name}")
+        fh.writelines(f"#SBATCH --nodes={cs.params.sbatch_nodes}\n")
+        fh.writelines(f"#SBATCH --ntasks-per-node={cs.params.sbatch_tasks_pn}\n")
+        fh.writelines(f"#SBATCH --partition={cs.params.sbatch_part}\n")
+        fh.writelines(f"srun -u {cs.files.lammps_exec} -in {cs.folders.in_file}/{in_file_name}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')
@@ -67,9 +69,9 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:  # type: ignore
-    sldir = Path(state[cs.Fslurm_directory_field])
-    tdir = sldir / cs.data_processing_folder
+def perform_processing_run(cwd: Path, state: Dict, params: str = None, part: str = None, nodes: STRNodes = STRNodes.ALL) -> int:  # type: ignore
+    sldir = Path(state[cs.sf.slurm_directory])
+    tdir = sldir / cs.folders.data_processing
     tdir.mkdir(parents=True, exist_ok=True)
 
     jname = "MDDPN"
@@ -95,20 +97,35 @@ def perform_processing_run(cwd: Path, state: Dict, params: str = None) -> int:  
         fh.writelines("#SBATCH --mail-user=perevoshchikyy@mpei.ru\n")
         fh.writelines("#SBATCH --begin=now\n")
 
-        fh.writelines(f"#SBATCH --nodes={cs.sbatch_processing_node_count}\n")
-        fh.writelines(f"#SBATCH --ntasks-per-node={cs.sbatch_tasks_pn}\n")
-        fh.writelines(f"#SBATCH --partition={cs.sbatch_processing_part}\n")
+        fh.writelines(f"#SBATCH --nodes={cs.params.sbatch_processing_node_count}\n")
+        fh.writelines(f"#SBATCH --ntasks-per-node={cs.params.sbatch_tasks_pn}\n")
+        if nodes != STRNodes.ALL:
+            if nodes == STRNodes.HOST:
+                fh.writelines("#SBATCH --exclude=angr[1-20]\n")
+                # fh.writelines("#SBATCH --nodelist=host[1-18]\n")
+            elif nodes == STRNodes.ANGR:
+                # fh.writelines("#SBATCH --nodelist=angr[1-20]\n")
+                fh.writelines("#SBATCH --exclude=host[1-18]\n")
+            else:
+                warnings.warn(f"There is no such nodeset as {str(nodes)}")
+        fh.writelines(f"#SBATCH --partition={cs.params.sbatch_processing_part if part is None else part}\n")
+        # fh.writelines(
+        #     f"LD_PRELOAD=/usr/lib64/libhdf5.so.10 srun -u {cs.MDDPN_exec} {params_line}")
         fh.writelines(
-            f"srun -u {cs.MDDPN_exec} {params_line}")
+            f"srun -u {cs.files.MDDPN_exec} {params_line}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')
+    berr = sbatch.stderr.decode('ascii')
     if re.match(r"^Submitted[ \t]+batch[ \t]+job[ \t]+\d+", bout):
         *beg, num = bout.split()
         print("Sbatch jobid: ", num)
     else:
         print("SBATCH OUTPUT:")
         print(bout)
+        print()
+        print("SBATCH ERROR:")
+        print(berr)
         print()
         raise RuntimeError("sbatch command not returned task jobid")
     return int(num)

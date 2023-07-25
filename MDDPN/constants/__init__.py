@@ -6,12 +6,6 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 12:26:40
+# Last modified: 25-07-2023 12:12:08
 
-
-import sys
-
-from MDDPN.nonmpi import dp
-
-
-sys.exit(dp.main())
+from . import cf, files, folders, sf, params

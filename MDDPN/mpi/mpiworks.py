@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 14:49:49
+# Last modified: 25-07-2023 15:27:32
 
 
 import os
@@ -21,13 +21,14 @@ from typing import List, Literal, NoReturn, Union
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 
 
-from . import adios2
+import adios2
 import numpy as np
 from numpy import typing as npt
 from mpi4py import MPI
 
 
 from .utils import setts, MPIComm, GatherResponseType
+from .. import constants as cs
 
 
 def blockPrint() -> None:
@@ -142,7 +143,7 @@ def nonroot_sanity(mpi_comm: MPIComm) -> Literal[1, 0]:
         else:
             return message
 
-    message: int | None = get_message(mpi_comm)
+    message: Union[int, None] = get_message(mpi_comm)
     while (message is not None) and (message != 0):
         mpi_comm.send(obj=int(message / 2), dest=0, tag=MPI_TAGS.SANITY)
         message = get_message(mpi_comm)
@@ -159,15 +160,15 @@ def ad_mpi_writer(sts: setts) -> NoReturn:
     threads: List[int] = mpi_comm.recv(source=0, tag=MPI_TAGS.TO_ACCEPT)
     folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
 
-    with adios2.open((cwd / folder / "ntb.bp").as_posix(), 'w') as adout:  # type: ignore
+    with adios2.open((cwd / folder / cs.files.mat_storage).as_posix(), 'w') as adout:  # type: ignore
         while True:
             for thread in threads:
                 if mpi_comm.iprobe(source=thread, tag=MPI_TAGS.WRITE):
                     step: int
                     arr: npt.NDArray[np.float32]
                     step, arr = mpi_comm.recv(source=thread, tag=MPI_TAGS.WRITE)
-                    adout.write("step", np.array(step))  # type: ignore
-                    adout.write("dist", arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)  # type: ignore
+                    adout.write(cs.cf.mat_step, np.array(step))  # type: ignore
+                    adout.write(cs.cf.mat_dist, arr, arr.shape, np.full(len(arr.shape), 0), arr.shape, end_step=True)  # type: ignore
                     mpi_comm.send(obj=step, dest=0, tag=MPI_TAGS.STATE)
 
 
@@ -178,7 +179,7 @@ def csvWriter(sts: setts) -> NoReturn:
     folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
 
     ctr: int = 0
-    with open((cwd / folder / "rdata.csv"), "w") as csv_file:
+    with open((cwd / folder / cs.files.comp_data), "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         while True:
             for thread in threads:

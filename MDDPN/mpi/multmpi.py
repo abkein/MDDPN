@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-05-2023 23:04:50
+# Last modified: 25-07-2023 15:19:39
 
 
 import os
@@ -27,18 +27,18 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import numpy as np
 from mpi4py import MPI
 from numpy import typing as npt
-from . import adios2
+import adios2
 
 from . import reader
+from . import matrice
+from .utils import setts
 from . import one_threaded
 from . import mpiworks as MW
 from . import fastd_mpi as fd
 from . import treat_mpi as treat
 from .mpiworks import MPI_TAGS, MPISanityError
-from .utils import setts
-from . import matrice
 
-from .. import uw_constants as ucs
+from .. import constants as cs
 
 
 class Role(Enum):
@@ -56,10 +56,10 @@ def bearbeit(folder: Path, storages: Dict[str, int]) -> Tuple[int, npt.NDArray[n
     storage = list(storages.keys())[0]
     adin = adios2.open((folder / storage).as_posix(), 'r')  # type: ignore
 
-    N = int(adin.read('natoms'))
-    Lx = float(adin.read('boxxhi'))
-    Ly = float(adin.read('boxyhi'))
-    Lz = float(adin.read('boxzhi'))
+    N = int(adin.read(cs.cf.natoms))
+    Lx = float(adin.read(cs.cf.boxxhi))
+    Ly = float(adin.read(cs.cf.boxyhi))
+    Lz = float(adin.read(cs.cf.boxzhi))
 
     adin.close()
 
@@ -72,7 +72,7 @@ def storage_rsolve(dump_folder: Path, _storages: List[str]) -> Dict[str, int]:
     for storage in _storages:
         file = dump_folder / storage
         if not file.exists():
-            raise FileNotFoundError(f"Storage {file} cannot be found")
+            raise FileNotFoundError(f"Storage {file.as_posix()} cannot be found")
         with adios2.open(file.as_posix(), 'r') as reader_c:  # type: ignore
             storages[storage] = reader_c.steps()
     return storages
@@ -94,17 +94,17 @@ def distribute(storages: Dict[str, int], mm: int) -> Dict[str, Dict[str, Union[i
         end = int(end_)
         beg = 0 + ls
         en = end - begin
-        wd[str(i)] = {"no": begin, "storages": {}}
+        wd[str(i)] = {cs.cf.number: begin, cs.cf.storages: {}}
         for storage in list(st):
             value = st[storage]
             if en >= value:
-                wd[str(i)]["storages"][storage] = {"begin": beg, "end": value}
+                wd[str(i)][cs.cf.storages][storage] = {cs.cf.begin: beg, cs.cf.end: value}
                 en -= value
                 ls = 0
                 beg = 0
                 del st[storage]
             elif en < value:
-                wd[str(i)]["storages"][storage] = {"begin": beg, "end": en}
+                wd[str(i)][cs.cf.storages][storage] = {cs.cf.begin: beg, cs.cf.end: en}
                 st[storage] -= en
                 ls += en
                 break
@@ -124,7 +124,7 @@ def after_ditribution(sts: setts, m: int):
                 resp = mpi_comm.recv(source=i, tag=MPI_TAGS.ONLINE)
                 print(f"Recieved from {i}: {resp}")
                 states[str(i)] = {}
-                states[str(i)]['name'] = resp
+                states[str(i)][cs.cf.pp_state_name] = resp
                 response_array.append((i, resp))
         if len(response_array) == mpi_size - 1:
             break
@@ -141,14 +141,14 @@ def after_ditribution(sts: setts, m: int):
                     completed_threads.append(i)
                     print(f"MPI ROOT, rank {i} has completed")
                     if len(completed_threads) == mpi_size - m:
-                        with open(cwd / "st.json", "w") as fp:
+                        with open(cwd / cs.files.post_process_state, "w") as fp:
                             json.dump(states, fp)
                         fl = False
                         break
                 else:
-                    states[str(i)]['state'] = tstate
+                    states[str(i)][cs.cf.pp_state] = tstate
         if time.time() - start > 20:
-            with open(cwd / "st.json", "w") as fp:
+            with open(cwd / cs.files.post_process_state, "w") as fp:
                 json.dump(states, fp)
             start = time.time()
     for i in range(1, m):
@@ -167,7 +167,7 @@ def perform_group_run(sts: setts, params: Dict, nv: int):
     thread_len = 3
     thread_num = floor((mpi_size - nv) / thread_len)
     print(f"Thread num: {thread_num}")
-    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params["storages"], thread_num)
+    wd: Dict[str, Dict[str, Union[int, Dict[str, int]]]] = distribute(params[cs.cf.storages], thread_num)
     print("Distribution")
     print(json.dumps(wd, indent=4))
 
@@ -180,13 +180,13 @@ def perform_group_run(sts: setts, params: Dict, nv: int):
     mpi_comm.send(obj=[nv + 1 + thread_len*i for i in range(thread_num)], dest=2, tag=MPI_TAGS.TO_ACCEPT)
     mpi_comm.send(obj=[nv + 2 + thread_len*i for i in range(thread_num)], dest=1, tag=MPI_TAGS.TO_ACCEPT)
 
-    mpi_comm.send(obj=params["data_processing_folder"], dest=2, tag=MPI_TAGS.SERV_DATA)
-    mpi_comm.send(obj=params["data_processing_folder"], dest=1, tag=MPI_TAGS.SERV_DATA)
+    mpi_comm.send(obj=params[cs.cf.data_processing_folder], dest=2, tag=MPI_TAGS.SERV_DATA)
+    mpi_comm.send(obj=params[cs.cf.data_processing_folder], dest=1, tag=MPI_TAGS.SERV_DATA)
 
     for i in range(thread_num):
         mpi_comm.send(obj=wd[str(i)], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
-        mpi_comm.send(obj=params["dump_folder"], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA_1)
-        mpi_comm.send(obj=(params["N_atoms"], params["bdims"]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
+        mpi_comm.send(obj=params[cs.cf.dump_folder], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA_1)
+        mpi_comm.send(obj=(params[cs.cf.N_atoms], params[cs.cf.bdims]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
         mpi_comm.send(obj=params, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
 
     return after_ditribution(sts, 3)
@@ -197,7 +197,7 @@ def perform_one_threaded(sts: setts, params: Dict, nv: int):
 
     thread_num = mpi_size - nv
     print(f"Thread num: {thread_num}")
-    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params['storages'], thread_num)
+    wd: Dict[str, Dict[str, Union[int, Dict[str, int]]]] = distribute(params[cs.cf.storages], thread_num)
     print("Distribution")
     print(json.dumps(wd, indent=4))
 
@@ -205,7 +205,7 @@ def perform_one_threaded(sts: setts, params: Dict, nv: int):
         mpi_comm.send(obj=Role.one_thread, dest=i + nv, tag=MPI_TAGS.DISTRIBUTION)
 
     for i in range(thread_num):
-        mkl = (wd[str(i)]["no"], wd[str(i)]["storages"])
+        mkl = (wd[str(i)][cs.cf.number], wd[str(i)][cs.cf.storages])
         mpi_comm.send(obj=mkl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_1)
         mpi_comm.send(obj=params, dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
 
@@ -213,14 +213,14 @@ def perform_one_threaded(sts: setts, params: Dict, nv: int):
 
 
 def gen_matrix(cwd: Path, params: Dict, storages: List[Path], cut: int):
-    output_csv_fp = cwd / params["data_processing_folder"] / "matrice.csv"
+    output_csv_fp = cwd / params[cs.cf.data_processing_folder] / cs.files.cluster_distribution_matrix
     with open(output_csv_fp, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
         for storage in storages:
             with adios2.open(storage.as_posix(), 'r') as reader:  # type: ignore
                 for step in reader:
-                    stee: int = step.read('step')
-                    dist = step.read('dist')
+                    stee: int = step.read(cs.cf.mat_step)
+                    dist = step.read(cs.cf.mat_dist)
                     writer.writerow(np.hstack([stee, dist[:cut]]).astype(dtype=np.uint32).flatten())
 
 
@@ -237,7 +237,7 @@ def after_new(sts: setts, m: int):
                 resp = mpi_comm.recv(source=i, tag=MPI_TAGS.ONLINE)
                 print(f"Recieved from {i}: {resp}")
                 states[str(i)] = {}
-                states[str(i)]['name'] = resp
+                states[str(i)][cs.cf.pp_state_name] = resp
                 response_array.append((i, resp))
         if len(response_array) == mpi_size - 1:
             break
@@ -254,14 +254,14 @@ def after_new(sts: setts, m: int):
                     completed_threads.append(i)
                     print(f"MPI ROOT, rank {i} has been completed")
                     if len(completed_threads) == mpi_size - m:
-                        with open(cwd / "st.json", "w") as fp:
+                        with open(cwd / cs.files.post_process_state, "w") as fp:
                             json.dump(states, fp)
                         fl = False
                         break
                 else:
-                    states[str(i)]['state'] = tstate
+                    states[str(i)][cs.cf.pp_state_name] = tstate
         if time.time() - start > 20:
-            with open(cwd / "st.json", "w") as fp:
+            with open(cwd / cs.files.post_process_state, "w") as fp:
                 json.dump(states, fp)
             start = time.time()
     for i in range(1, m):
@@ -280,13 +280,13 @@ def after_new(sts: setts, m: int):
     storages.sort(key=lambda x: x[1])
     storages = [storage[1] for storage in storages]
 
-    stf = (cwd / ucs.data_file)
-    with open(stf, 'r') as fp:
+    data_file = (cwd / cs.files.data)
+    with open(data_file, 'r') as fp:
         son: Dict[str, Any] = json.load(fp)
 
-    son["mat_storages"] = [storage.as_posix() for storage in storages]
+    son[cs.cf.matrix_storages] = [storage.as_posix() for storage in storages]
 
-    with open(stf, 'w') as fp:
+    with open(data_file, 'w') as fp:
         json.dump(son, fp)
 
     gen_matrix(cwd, son, storages, max(max_sizes))
@@ -300,7 +300,7 @@ def perform_new(sts: setts, params: Dict, nv: int):
 
     thread_num = mpi_size - nv
     print(f"Thread num: {thread_num}")
-    wd: Dict[str, Dict[str, int | Dict[str, int]]] = distribute(params['storages'], thread_num)
+    wd: Dict[str, Dict[str, Union[int, Dict[str, int]]]] = distribute(params[cs.cf.storages], thread_num)
     print("Distribution")
     print(json.dumps(wd, indent=4))
 
@@ -308,7 +308,7 @@ def perform_new(sts: setts, params: Dict, nv: int):
         mpi_comm.send(obj=Role.matr, dest=i + nv, tag=MPI_TAGS.DISTRIBUTION)
 
     for i in range(thread_num):
-        mkl = (wd[str(i)]["no"], wd[str(i)]["storages"])
+        mkl = (wd[str(i)][cs.cf.number], wd[str(i)][cs.cf.storages])
         mpi_comm.send(obj=mkl, dest=nv + i, tag=MPI_TAGS.SERV_DATA_1)
         mpi_comm.send(obj=params, dest=nv + i, tag=MPI_TAGS.SERV_DATA_2)
 
@@ -321,24 +321,24 @@ def main(sts: setts):
 
     parser = argparse.ArgumentParser(description='Generate cluster distribution matrix from ADIOS2 LAMMPS data.')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
-    parser.add_argument('--mode', action='store', type=int, default=3, help='Mode to run')  # type: ignore
+    parser.add_argument('--mode', action='store', type=int, default=3, help='Mode to run')
     args = parser.parse_args()
 
     if args.debug:
         print("Envolved args:")
         print(args)
     else:
-        stf = (cwd / ucs.data_file)
-        with open(stf, 'r') as fp:
+        data_file = (cwd / cs.files.data)
+        with open(data_file, 'r') as fp:
             son: Dict[str, Any] = json.load(fp)
-        _storages: List[str] = son["storages"]
-        storages = storage_rsolve(cwd / son["dump_folder"], _storages)
-        N_atoms, bdims = bearbeit(cwd / son["dump_folder"], storages)
-        son["N_atoms"] = N_atoms
-        son["Volume"] = np.prod(bdims)
-        son["dimensions"] = list(bdims)
-        son["storages"] = storages
-        with open(stf, 'w') as fp:
+        _storages: List[str] = son[cs.cf.storages]
+        storages = storage_rsolve(cwd / son[cs.cf.dump_folder], _storages)
+        N_atoms, bdims = bearbeit(cwd / son[cs.cf.dump_folder], storages)
+        son[cs.cf.N_atoms] = N_atoms
+        son[cs.cf.volume] = np.prod(bdims)
+        son[cs.cf.dimensions] = list(bdims)
+        son[cs.cf.storages] = storages
+        with open(data_file, 'w') as fp:
             json.dump(son, fp)
 
         if args.mode == 1:

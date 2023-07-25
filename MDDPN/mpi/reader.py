@@ -6,26 +6,27 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 14:46:29
+# Last modified: 25-07-2023 15:23:30
 
 
 import time
-from typing import Dict, Literal
+from typing import Dict, Literal, Union
 
-from . import adios2
+import adios2
 import numpy as np
 
-from .mpiworks import MPI_TAGS
 from .utils import setts
+from .mpiworks import MPI_TAGS
+from .. import constants as cs
 
 
 def reader(sts: setts) -> Literal[0]:
     cwd, mpi_comm, mpi_rank = sts.cwd, sts.mpi_comm, sts.mpi_rank
     mpi_comm.Barrier()
-    dasdictt: Dict[str, int | Dict[str, int]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
+    dasdictt: Dict[str, Union[int, Dict[str, int]]] = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA)
     dump_folder: str = mpi_comm.recv(source=0, tag=MPI_TAGS.SERV_DATA_1)
-    ino: int = dasdictt["no"]  # type: ignore
-    storages: Dict[str, int] = dasdictt["storages"]  # type: ignore
+    ino: int = dasdictt[cs.cf.number]  # type: ignore
+    storages: Dict[str, int] = dasdictt[cs.cf.storages]  # type: ignore
     proceeder_rank = mpi_rank + 1
     worker_counter = 0
     sync_value = 0
@@ -36,10 +37,10 @@ def reader(sts: setts) -> Literal[0]:
             total_steps = reader.steps()
             i = 0
             for step in reader:
-                if i < storages[storage]["begin"]:  # type: ignore
+                if i < storages[storage][cs.cf.begin]:  # type: ignore
                     i += 1
                     continue
-                arr = step.read('atoms')
+                arr = step.read(cs.cf.lammps_dist)
                 arr = arr[:, 2:5].astype(dtype=np.float32)
                 tpl = (worker_counter + ino, mpi_rank, arr)
                 print(f"MPI rank {mpi_rank}, reader, {worker_counter}")
@@ -48,7 +49,7 @@ def reader(sts: setts) -> Literal[0]:
                 worker_counter += 1
                 mpi_comm.send(obj=worker_counter, dest=0, tag=MPI_TAGS.STATE)
 
-                if i == storages[storage]["end"] + storages[storage]["begin"] - 1:  # type: ignore
+                if i == storages[storage][cs.cf.end] + storages[storage][cs.cf.begin] - 1:  # type: ignore
                     print(f"MPI rank {mpi_rank}, reader, reached end of distribution, {storage, i, worker_counter}")
                     break
                 i += 1

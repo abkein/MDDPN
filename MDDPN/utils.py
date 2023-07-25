@@ -6,13 +6,14 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-05-2023 19:03:57
+# Last modified: 24-07-2023 11:18:47
 
 
 import numpy as np
 from typing import Union, Iterable
 
-float = float | np.floating
+
+float = Union[float, np.floating]
 # int = int | np.intp
 
 

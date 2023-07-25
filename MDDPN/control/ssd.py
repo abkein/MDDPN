@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 14:54:43
+# Last modified: 24-07-2023 21:05:28
 
 
 # TODO:
@@ -19,7 +19,7 @@ from pathlib import Path
 from .init import init
 from .run import run, restart
 from .post_process import end
-from .utils import com_set, load_state
+from .utils import com_set, load_state, STRNodes
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
@@ -72,6 +72,8 @@ def main():
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
     parser_end.add_argument('--params', action='store', type=str, default=None, help='Post-processing parameters')
+    parser_end.add_argument('--part', action='store', type=str, default=None, help='Set partition (defaulting to small)')
+    parser_end.add_argument('--nodes', action='store', type=STRNodes, default=STRNodes.ALL, help='Set nodes (default all possible)')
     # parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')
 
     args = parser.parse_args()

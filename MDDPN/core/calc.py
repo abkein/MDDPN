@@ -6,10 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-05-2023 19:45:58
+# Last modified: 24-07-2023 23:35:42
 
 
 import numpy as np
+from typing import Union
 from numpy import typing as npt
 
 from ..utils import float
@@ -37,7 +38,7 @@ def nd(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: floa
     return np.sum(dist[sizes >= kmin]) / volume  # type: ignore
 
 
-def nvs(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: float, kmin: int, T: float) -> float | None:
+def nvs(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: float, kmin: int, T: float) -> Union[float, None]:
     ms = sizes[-1]
     n1 = dist[0] / volume
     dzd = dist[kmin - 1:ms]
@@ -53,7 +54,7 @@ def nvs(sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], volume: flo
 
 
 def get_row(step: int, sizes: npt.NDArray[np.uint32], dist: npt.NDArray[np.uint32], temp: float, N_atoms: int, volume: float, dt: float, dis: int, km: int) -> npt.NDArray[np.float32]:
-    # km: int = 0
+    # km: int = 10
     # eps = 0.9
 
     # ld = np.array([np.sum(sizes[:i]*dist[:i]) / N_atoms for i in range(1, len(dist))], dtype=np.float32)

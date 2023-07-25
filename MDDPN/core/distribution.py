@@ -9,9 +9,9 @@
 # Last modified: 16-04-2023 00:34:47
 
 
+import freud
 import numpy as np
 from numpy import typing as npt
-import freud
 
 
 def scale2box(points: npt.NDArray[np.float32], box: freud.box.Box) -> npt.NDArray[np.float32]:

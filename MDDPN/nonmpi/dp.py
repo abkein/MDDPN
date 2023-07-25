@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-05-2023 20:11:09
+# Last modified: 24-07-2023 23:51:26
 
 import csv
 import json
@@ -19,6 +19,7 @@ import pandas as pd
 from numpy import typing as npt
 
 from ..core import calc
+from .. import uw_constants as ucs
 
 
 BUF_SIZE = 65536  # 64kb
@@ -103,7 +104,7 @@ def main():
         print(args)
 
     cwd = Path.cwd()
-    conf_file = cwd / "data.json"
+    conf_file = cwd / ucs.data_file  # "data.json"
 
     with conf_file.open('r') as f:
         son = json.load(f)
@@ -128,4 +129,5 @@ def main():
 
 
 if __name__ == "__main__":
-    pass
+    import sys
+    sys.exit(main())

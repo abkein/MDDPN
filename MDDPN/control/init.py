@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-04-2023 12:08:01
+# Last modified: 25-07-2023 12:46:52
 
 import re
 import json
@@ -17,7 +17,7 @@ from pathlib import Path
 
 from .utils import states
 from . import regexs as rs
-from . import constants as cs
+from .. import constants as cs
 
 # TODO:
 # gen_in not properly processes folders
@@ -33,17 +33,17 @@ def process_file(file: Path, state: Dict) -> Dict:
         for line in fin:
             if re.match(rs.required_variable_equal_numeric("SEED_I"), line):
                 VAR_VAL = round(time.time())
-                state[cs.Fuser_variables]["SEED_I"] = VAR_VAL
+                state[cs.sf.user_variables]["SEED_I"] = VAR_VAL
                 variables["SEED_I"] = VAR_VAL
                 variables["v_SEED_I"] = VAR_VAL
             elif re.match(rs.required_variable_equal_numeric("SEED_II"), line):
                 VAR_VAL = round(time.time())
-                state[cs.Fuser_variables]["SEED_II"] = VAR_VAL
+                state[cs.sf.user_variables]["SEED_II"] = VAR_VAL
                 variables["SEED_II"] = VAR_VAL
                 variables["v_SEED_II"] = VAR_VAL
             elif re.match(rs.required_variable_equal_numeric("SEED_III"), line):
                 VAR_VAL = round(time.time())
-                state[cs.Fuser_variables]["SEED_III"] = VAR_VAL
+                state[cs.sf.user_variables]["SEED_III"] = VAR_VAL
                 variables["SEED_III"] = VAR_VAL
                 variables["v_SEED_III"] = VAR_VAL
             elif re.match(rs.variable_equal_numeric, line):
@@ -61,7 +61,7 @@ def process_file(file: Path, state: Dict) -> Dict:
                 w_timestep, TIME_STEP = line.split()
                 TIME_STEP = eval(TIME_STEP)
                 variables['dt'] = TIME_STEP
-                state['time_step'] = TIME_STEP
+                state[cs.sf.time_step] = TIME_STEP
             elif re.match(rs.run_numeric, line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval(RUN_STEPS)
@@ -79,92 +79,93 @@ def process_file(file: Path, state: Dict) -> Dict:
                 labels[label] = []
             elif re.match(rs.set_restart, line):
                 w_restart, RESTART_FREQUENCY, RESTART_FILES = line.split()
-                state[cs.Frestart_files] = RESTART_FILES[:-1]
+                state[cs.sf.restart_files] = RESTART_FILES[:-1]
                 RESTART_FREQUENCY = eval("variables['" + RESTART_FREQUENCY[2:-1] + "']")
-                state[cs.Frestart_every] = RESTART_FREQUENCY
+                state[cs.sf.restart_every] = RESTART_FREQUENCY
     vt = 0
     labels_list = list(labels.keys())
     for label in labels:
-        labels[label] = {"begin_step": vt, "end_step": sum(labels[label]) + vt, cs.Fruns: 0}  # type: ignore
-        vt = labels[label]["end_step"]  # type: ignore
+        labels[label] = {cs.sf.begin_step: vt, cs.sf.end_step: sum(labels[label]) + vt, cs.Fruns: 0}  # type: ignore
+        vt = labels[label][cs.sf.end_step]  # type: ignore
     labels["START"]["0"] = {cs.Fdump_file: "START0"}  # type: ignore
-    # state['runc'] = runc
-    state[cs.Frun_labels] = labels
-    state[cs.Flabels_list] = labels_list
-    state[cs.Fvariables] = variables
-    state[cs.Fruns] = runs
+    state[cs.sf.run_labels] = labels
+    state[cs.sf.labels_list] = labels_list
+    state[cs.sf.variables] = variables
+    state[cs.sf.runs] = runs
     return state
 
 
 def gen_in(cwd: Path, state: Dict) -> Path:
-    variables = state[cs.Fuser_variables]
-    out_in_file = cwd / cs.in_file_dir / "START0.in"
+    variables = state[cs.sf.user_variables]
+    out_in_file = cwd / cs.folders.in_file / "START0.in"
     if out_in_file.exists():
-        raise FileExistsError(f"Output in. file {out_in_file} already exists")
+        raise FileExistsError(f"Output in. file {out_in_file.as_posix()} already exists")
     else:
         out_in_file.touch()
-    with cs.start_template_file.open('r') as fin, out_in_file.open('w') as fout:
+    stf: Path = (cwd / cs.folders.in_templates / cs.files.start_template)
+    with stf.open('r') as fin, out_in_file.open('w') as fout:
         for line in fin:
             if re.match(rs.variable_equal_numeric, line):
                 for var, value in variables.items():
                     if re.match(rs.required_variable_equal_numeric(var), line):
                         line = f"variable {var} equal {value}\n"
             elif re.match(rs.set_dump, line):
-                before = line.split()[:-1] + [f"{cs.dumps_folder}/START0", "\n"]
+                before = line.split()[:-1] + [f"{cs.folders.dumps}/START0", "\n"]
                 line = " ".join(before)
             elif re.match(rs.set_restart, line):
-                line_list = line.split()[:-1] + [f"{cs.restarts_folder}/{state[cs.Frestart_files]}*", "\n"]
+                line_list = line.split()[:-1] + [f"{cs.folders.restarts}/{state[cs.sf.restart_files]}*", "\n"]
                 line = " ".join(line_list)
             fout.write(line)
     return out_in_file
 
 
 def check_required_fs(cwd: Path):
-    if (cwd / cs.state_file).exists():
-        raise FileExistsError(f"File {cs.state_file} already exists")
-    (cwd / cs.state_file).touch()
-    if (cwd / cs.restarts_folder).exists():
-        raise FileExistsError(f"Directory {cs.restarts_folder} already exists")
-    (cwd / cs.restarts_folder).mkdir()
-    if (cwd / cs.in_file_dir).exists():
-        raise FileExistsError(f"Directory {cs.in_file_dir} already exists")
-    (cwd / cs.in_file_dir).mkdir()
-    if (cwd / cs.dumps_folder).exists():
-        raise FileExistsError(f"Directory {cs.dumps_folder} already exists")
-    (cwd / cs.dumps_folder).mkdir()
-    if (cwd / cs.sl_dir).exists():
-        raise FileExistsError(f"Directory {cs.sl_dir} already exists")
-    (cwd / cs.sl_dir).mkdir()
-    if (cwd / cs.data_processing_folder).exists():
-        raise FileExistsError(f"Directory {cs.data_processing_folder} already exists")
-    (cwd / cs.data_processing_folder).mkdir()
-    if (cwd / cs.special_restarts_folder).exists():
-        raise FileExistsError(f"Directory {cs.special_restarts_folder} already exists")
-    (cwd / cs.special_restarts_folder).mkdir()
+    if (n := (cwd / cs.files.state)).exists():
+        raise FileExistsError(f"File {n.as_posix()} already exists")
+    n.touch()
+    if (n := (cwd / cs.folders.restarts)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
+    if (n := (cwd / cs.folders.in_file)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
+    if (n := (cwd / cs.folders.dumps)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
+    if (n := (cwd / cs.folders.sl)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
+    if (n := (cwd / cs.folders.data_processing)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
+    if (n := (cwd / cs.folders.special_restarts)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
     return True
 
 
 def init(cwd: Path, args: argparse.Namespace):
     check_required_fs(cwd)
-    sldir = cwd / cs.sl_dir
+    sldir = cwd / cs.folders.sl
 
-    state = {cs.state_field: states.fully_initialized}
+    state = {cs.sf.state: states.fully_initialized}
     if args.file:
-        pfile = (cwd / cs.params_file) if args.fname is None else args.fname
+        pfile = (cwd / cs.files.params) if args.fname is None else args.fname
         with pfile.open('r') as f:
             variables = json.load(f)
     else:
         variables = json.loads(args.params)
-    state[cs.Fuser_variables] = variables
+    state[cs.sf.user_variables] = variables
 
-    state = process_file(cs.start_template_file, state)
+    stf: Path = (cwd / cs.folders.in_templates / cs.files.start_template)
+    state = process_file(stf, state)
     in_file = gen_in(cwd, state)
     state = process_file(in_file, state)
-    state[cs.Frun_labels]["START"]["0"][cs.Fin_file] = str(in_file.parts[-1])
-    state[cs.Frun_labels]["START"]["0"][cs.Frun_no] = 1
-    state[cs.Frun_counter] = 0
-    state[cs.Fslurm_directory_field] = str(sldir)
-    with (cwd / cs.state_file).open('w') as f:
+    state[cs.sf.run_labels]["START"]["0"][cs.sf.in_file] = str(in_file.parts[-1])
+    state[cs.sf.run_labels]["START"]["0"][cs.sf.run_no] = 1
+    state[cs.sf.run_counter] = 0
+    state[cs.sf.slurm_directory] = str(sldir)
+    with (cwd / cs.files.state).open('w') as f:
         json.dump(state, f)
     return 0
 
