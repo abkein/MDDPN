@@ -9,11 +9,11 @@
 # Last modified: 08-04-2023 15:03:06
 
 
-from pathlib import Path
+import json
 import adios2
 import argparse
-import json
 import numpy as np
+from pathlib import Path
 # from pprint import pprint
 
 

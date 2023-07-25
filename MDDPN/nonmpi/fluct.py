@@ -19,10 +19,10 @@ import argparse
 from typing import List
 from pathlib import Path
 
+import adios2
 import numpy as np
 from numpy import typing as npt
 
-from . import adios2
 from .. import constants as cs
 
 
