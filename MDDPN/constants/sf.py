@@ -6,9 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:31:03
+# Last modified: 25-07-2023 16:38:48
 
-from union import time_step, restart_every
+from .union import time_step, restart_every
 
 state: str = 'state'
 restart: str = 'restart_count'

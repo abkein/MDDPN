@@ -6,10 +6,10 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:31:00
+# Last modified: 25-07-2023 16:38:57
 
-from union import time_step
-from union import restart_every as every
+from .union import time_step
+from .union import restart_every as every
 
 xi: str = "xi"
 step_before: str = "step_before"
@@ -33,11 +33,11 @@ lammps_dist: str = 'atoms'
 dimensions: str = "dimensions"
 volume: str = "Volume"
 N_atoms: str = "N_atoms"
-bdims: str = "bdims"
+# bdims: str = "bdims"
 matrix_storages: str = "mat_storages"
 
 pp_state_name: str = "name"
-pp_state: str = "name"
+pp_state: str = "state"
 mat_step: str = "step"
 mat_dist: str = "dist"
 

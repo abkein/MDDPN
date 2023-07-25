@@ -6,26 +6,26 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-07-2023 23:51:26
+# Last modified: 25-07-2023 16:44:43
 
 import csv
 import json
 import argparse
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from numpy import typing as npt
 
 from ..core import calc
-from .. import uw_constants as ucs
+from .. import constants as cs
 
 
 BUF_SIZE = 65536  # 64kb
 
 
-def find_file(cwd: Path, file: str | None, subf: str, defname: str) -> Tuple[bool, Path]:
+def find_file(cwd: Path, file: Union[str, None], subf: str, defname: str) -> Tuple[bool, Path]:
     if (cwd / subf).exists():
         if file is None:
             if (f := (cwd / subf / defname)).exists():
@@ -45,10 +45,10 @@ def find_file(cwd: Path, file: str | None, subf: str, defname: str) -> Tuple[boo
 
 def run(infile: Path, outfile: Path, conf: Dict, temp_mat: Tuple[npt.NDArray[np.uint64], npt.NDArray[np.float32]], cut: int, km: int):
     temptime, temperatures = temp_mat
-    dis = conf["every"]
-    N_atoms = conf["N_atoms"]
-    time_step = conf["time_step"]
-    volume = conf["Volume"]
+    dis = conf[cs.cf.every]
+    N_atoms = conf[cs.cf.N_atoms]
+    time_step = conf[cs.cf.time_step]
+    volume = conf[cs.cf.volume]
     sizes: npt.NDArray[np.uint32] = np.arange(1, cut + 1, 1, dtype=np.uint32)
     with pd.read_csv(infile, header=None, chunksize=BUF_SIZE) as reader, open(outfile, "w") as csv_file:
         writer = csv.writer(csv_file, delimiter=',')
@@ -72,8 +72,8 @@ def ncut(infile: Path) -> int:
 
 
 def km(infile: Path, conf: Dict, cut: int, eps: float) -> int:
-    fst = round(conf["step_before"] / conf["every"])
-    N_atoms = conf["N_atoms"]
+    fst = round(conf[cs.cf.step_before] / conf[cs.cf.every])
+    N_atoms = conf[cs.cf.N_atoms]
     sizes = np.arange(1, cut + 1, 1)
     # index = np.array([], dtype=np.uint32)
     with pd.read_csv(infile, header=None, chunksize=BUF_SIZE) as reader:
@@ -88,7 +88,7 @@ def km(infile: Path, conf: Dict, cut: int, eps: float) -> int:
                 ld = np.array([np.sum(sizes[:i]*dist[:i]) / N_atoms for i in range(1, len(dist))], dtype=np.float32)
                 km = np.argmin(np.abs(ld - eps))
                 return int(km)
-    raise KeyError(f"Step before {conf['step_before']}/{conf['every']}={fst} not found in matrix")
+    raise KeyError(f"Step before {conf[cs.cf.step_before]}/{conf[cs.cf.every]}={fst} not found in matrix")
 
 
 def main():
@@ -104,18 +104,18 @@ def main():
         print(args)
 
     cwd = Path.cwd()
-    conf_file = cwd / ucs.data_file  # "data.json"
+    conf_file = cwd / cs.files.data  # "data.json"
 
     with conf_file.open('r') as f:
         son = json.load(f)
 
-    subf = son["data_processing_folder"]
+    subf = son[cs.cf.data_processing_folder]
 
-    mode, data_file = find_file(cwd, args.file, subf, "matrice.csv")
+    mode, data_file = find_file(cwd, args.file, subf, cs.files.cluster_distribution_matrix)
 
-    outfile = cwd / "rdata.csv"
+    outfile = cwd / cs.files.comp_data
 
-    temperatures_mat = pd.read_csv(cwd / "temperature.log", header=None)
+    temperatures_mat = pd.read_csv(cwd / cs.files.temperature, header=None)
     temptime = temperatures_mat[0].to_numpy(dtype=np.uint64)
     temperatures = temperatures_mat[1].to_numpy(dtype=np.float32)
 

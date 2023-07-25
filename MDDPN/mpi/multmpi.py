@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:19:39
+# Last modified: 25-07-2023 15:50:22
 
 
 import os
@@ -186,7 +186,7 @@ def perform_group_run(sts: setts, params: Dict, nv: int):
     for i in range(thread_num):
         mpi_comm.send(obj=wd[str(i)], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA)
         mpi_comm.send(obj=params[cs.cf.dump_folder], dest=nv + thread_len * i, tag=MPI_TAGS.SERV_DATA_1)
-        mpi_comm.send(obj=(params[cs.cf.N_atoms], params[cs.cf.bdims]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
+        mpi_comm.send(obj=(params[cs.cf.N_atoms], params[cs.cf.dimensions]), dest=nv + thread_len * i + 1, tag=MPI_TAGS.SERV_DATA)
         mpi_comm.send(obj=params, dest=nv + thread_len * i + 2, tag=MPI_TAGS.SERV_DATA)
 
     return after_ditribution(sts, 3)

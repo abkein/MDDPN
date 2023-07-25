@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 30-04-2023 11:09:36
+# Last modified: 25-07-2023 15:56:36
 
 # TODO:
 # Change parser description
@@ -23,7 +23,7 @@ import numpy as np
 from numpy import typing as npt
 
 from . import adios2
-from .. import uw_constants as ucs
+from .. import constants as cs
 
 
 def rms(arr: npt.NDArray[np.uint32]) -> npt.NDArray[np.float32]:
@@ -50,7 +50,7 @@ def process(file: Path, hms: int, lc: int, cut: int = 100):
             writer = csv.writer(csv_file, delimiter=',')
             counter = lc
             for step in adout:
-                dist: npt.NDArray[np.uint32] = step.read("dist")
+                dist: npt.NDArray[np.uint32] = step.read(cs.cf.mat_dist)
                 dist = dist[:cut]
 
                 buffer[counter, :] = dist
@@ -80,10 +80,10 @@ def main():
         print(args)
         exit()
     cwd = Path.cwd()
-    with open(cwd / ucs.data_file, 'r') as f:
+    with open(cwd / cs.files.data, 'r') as f:
         fp = json.load(f)
 
-    folder: Path = cwd / fp['data_processing_folder']
+    folder: Path = cwd / fp[cs.cf.data_processing_folder]
 
     storages: List[str] = []
     stf: Path
@@ -92,21 +92,21 @@ def main():
             storages.append(stf.relative_to(folder).as_posix())
 
     for file in storages:
-        stf = cwd / fp['data_processing_folder'] / file
+        stf = cwd / fp[cs.cf.data_processing_folder] / file
         if not stf.exists():
             raise FileNotFoundError(f"File {stf.as_posix()} cannot be found")
 
     try:
-        _temp = (fp['xi'], fp['time_step'], fp['every'])
+        _temp = (fp[cs.cf.xi], fp[cs.cf.time_step], fp[cs.cf.every])
     except KeyError:
         raise
 
-    hms = round(args.dT / fp['xi'] / fp["time_step"] / fp["every"])
+    hms = round(args.dT / fp[cs.cf.xi] / fp[cs.cf.time_step] / fp[cs.cf.every])
     print(f"Hms is {hms} steps")
 
     lc = 0
     for file in storages:
-        stf = cwd / fp['data_processing_folder'] / file
+        stf = cwd / fp[cs.cf.data_processing_folder] / file
         lc = process(stf, hms, lc)
 
 

@@ -12,3 +12,4 @@ rec_sync.sh
 tests
 **/__pycache__/
 calc_lines.sh
+MDDPN/deprecated/
