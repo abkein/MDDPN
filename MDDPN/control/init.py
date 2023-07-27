@@ -6,14 +6,14 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 12:46:52
+# Last modified: 27-07-2023 12:49:18
 
 import re
 import json
 import time
 import argparse
-from typing import Dict
 from pathlib import Path
+from typing import List, Dict, Union
 
 from .utils import states
 from . import regexs as rs
@@ -24,7 +24,7 @@ from .. import constants as cs
 
 
 def process_file(file: Path, state: Dict) -> Dict:
-    labels = {"START": [0]}
+    labels: Dict[str, Union[int, List[int]]] = {"START": [0]}
     runs = {}
     variables = {}
     runc = 0
@@ -66,13 +66,13 @@ def process_file(file: Path, state: Dict) -> Dict:
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval(RUN_STEPS)
                 runs["run" + str(runc)] = RUN_STEPS
-                labels[label] += [RUN_STEPS]
+                labels[label] += [RUN_STEPS]  # type: ignore
                 runc += 1
             elif re.match(rs.run_formula, line):
                 w_run, RUN_STEPS = line.split()
                 RUN_STEPS = eval("variables['" + RUN_STEPS[2:-1] + "']")
                 runs["run" + str(runc)] = RUN_STEPS
-                labels[label] += [RUN_STEPS]
+                labels[label] += [RUN_STEPS]  # type: ignore
                 runc += 1
             elif re.match(rs.label_declaration, line):
                 label = line.split()[-1]
@@ -85,9 +85,9 @@ def process_file(file: Path, state: Dict) -> Dict:
     vt = 0
     labels_list = list(labels.keys())
     for label in labels:
-        labels[label] = {cs.sf.begin_step: vt, cs.sf.end_step: sum(labels[label]) + vt, cs.Fruns: 0}  # type: ignore
+        labels[label] = {cs.sf.begin_step: vt, cs.sf.end_step: sum(labels[label]) + vt, cs.sf.runs: 0}  # type: ignore
         vt = labels[label][cs.sf.end_step]  # type: ignore
-    labels["START"]["0"] = {cs.Fdump_file: "START0"}  # type: ignore
+    labels["START"]["0"] = {cs.sf.dump_file: "START0"}  # type: ignore
     state[cs.sf.run_labels] = labels
     state[cs.sf.labels_list] = labels_list
     state[cs.sf.variables] = variables
