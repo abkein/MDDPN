@@ -6,18 +6,18 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 12:16:17
+# Last modified: 31-08-2023 20:02:36
 
 import re
 import sys
 import time
 import shlex
+import logging
 import argparse
 from enum import Enum
 import subprocess as sb
 from typing import Tuple
 from pathlib import Path
-from datetime import datetime
 
 from .. import constants as cs
 
@@ -81,98 +81,133 @@ class LogicError(Exception):
     pass
 
 
-def perform_restart(cwd: Path) -> Tuple[str, str]:
-    cmd = "MDDPN.py restart"
+def perform_restart(cwd: Path, logger: logging.Logger) -> Tuple[str, str]:
+    cmd = f"{cs.execs.MDDPN} restart"
     cmds = shlex.split(cmd)
     # p = sb.Popen(cmds, start_new_session=True)
-    p = sb.run(cmds, capture_output=True)
-    bout = p.stdout.decode()
-    berr = p.stderr.decode()
+    sbatch = sb.run(cmds, capture_output=True)
+    bout = sbatch.stdout.decode()
+    berr = sbatch.stderr.decode()
+    if sbatch.returncode != 0:
+        logger.error("sbatch returned non-zero exitcode")
+        logger.error("### OUTPUT ###")
+        logger.error("bout")
+        logger.error("### ERROR ###")
+        logger.error(berr)
+        logger.error("")
+        raise RuntimeError("Sacct returned non-zero exitcode")
     return bout, berr
 
 
-def perform_check(jobid: int) -> SStates:
-    cmd = f"sacct -j {jobid} -n -p -o jobid,state"
+def perform_check(jobid: int, logger: logging.Logger) -> SStates:
+    cmd = f"{cs.execs.sacct} -j {jobid} -n -p -o jobid,state"
     cmds = shlex.split(cmd)
-    p = sb.run(cmds, capture_output=True)
-    bout = p.stdout.decode()
-    # berr = p.stderr.decode()
-    # f.writelines("sacct output\n")
-    # f.writelines(bout)
-    # f.writelines("sacct errors\n")
-    # f.writelines(berr)
-    # f.writelines("GGG\n")
+    sacct = sb.run(cmds, capture_output=True)
+    bout = sacct.stdout.decode()
+    berr = sacct.stderr.decode()
+    if sacct.returncode != 0:
+        logger.error("Sacct returned non-zero exitcode")
+        logger.error("### OUTPUT ###")
+        logger.error("bout")
+        logger.error("### ERROR ###")
+        logger.error(berr)
+        logger.error("")
+        raise RuntimeError("Sacct returned non-zero exitcode")
     for line in bout.splitlines():
         if re.match(r"^\d+\|[a-zA-Z]+\|", line):
             return SStates(line.split('|')[1])
     return SStates.UNKNOWN_STATE
 
 
-def tm() -> str:
-    return str(datetime.now().strftime("%d:%m:%Y-%H:%M:%S"))
+# def tm() -> str:
+#     return str(datetime.now().strftime("%d:%m:%Y-%H:%M:%S"))
 
 
 def loop(cwd: Path, args: argparse.Namespace):
     jobid = args.jobid
     last_state = SStates.RUNNING
     last_state_time = time.time()
-    logfile = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
-    logfile = cwd / cs.folders.sl / logfile
-    with logfile.open("w") as f:
-        f.writelines(f"{tm()}: Started main loop\n")
-    while True:
-        time.sleep(args.every * 60)
-        try:
-            with logfile.open("a") as f:
-                state = perform_check(jobid)
-        except Exception as e:
-            with logfile.open("a") as f:
-                f.writelines(f"{tm()}: Check perform function raised an exception. Exiting...\n")
-                f.writelines(str(e))
-            raise
-        with logfile.open("a") as f:
+    logfile_name = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
+    logfile = cwd / cs.folders.sl / logfile_name
+
+    handler = logging.FileHandler(logfile)
+    handler.setFormatter(cs.sp.formatter)
+
+    logger = logging.getLogger('polling')
+    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+    logger.addHandler(handler)
+
+    lockfile = cwd / cs.files.restart_lock
+    if lockfile.exists():
+        logger.error(f"Lockfile exists: {lockfile.as_posix()}")
+        raise Exception(f"Lockfile exists: {lockfile.as_posix()}")
+    lockfile.touch()
+
+    logger.info("Started main loop")
+
+    fl = True
+
+    try:
+        while fl:
+            time.sleep(args.every * 60)
+            logger.info("Checking job")
+            try:
+                state = perform_check(jobid, logger.getChild("task_check"))
+            except Exception as e:
+                logger.critical("Check failed. Exiting...")
+                logger.critical(str(e))
+                raise
+            logger.info(f"Job state: {str(state)}")
             if state in states_to_restart:
-                f.writelines(f"{tm()}: Succesfully reached restart state: {str(state)}. Restarting task\n")
-                lout, lerr = perform_restart(cwd)
-                f.writelines(f"{tm()}: Succesfully restarted task. Exiting...\n")
-                f.writelines("#####  Normal output:  #####")
-                f.writelines(lout)
-                f.writelines("\n")
-                f.writelines("#####  Errors:  #####")
-                f.writelines(lerr)
-                f.writelines("\n")
-                return 0
+                logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
+                lout, lerr = perform_restart(cwd, logger.getChild("restart"))
+                logger.info("Succesfully restarted task. Exiting...")
+                logger.debug("#####  Normal output:  #####")
+                logger.debug(lout)
+                logger.debug("#####  Errors:  #####")
+                logger.debug(lerr)
+                fl = False
             elif state in failure_states:
-                f.writelines(f"{tm()}: Something went wrong with slurm job. State: {str(state)} Exiting...\n")
-                return 0
+                logger.error(f"Something went wrong with slurm job. State: {str(state)} Exiting...")
+                fl = False
             elif state == SStates.UNKNOWN_STATE:
-                f.writelines(f"{tm()}: Unknown slurm job state: {str(state)} Exiting...\n")
-                return 0
+                logger.error(f"Unknown slurm job state: {str(state)} Exiting...")
+                fl = False
             elif state == SStates.PENDING:
-                f.writelines(f"{tm()}: Pending...\n")
+                logger.info("Pending...")
             elif state != SStates.RUNNING:
                 if state == last_state:
                     if time.time() - last_state_time > time_criteria:
-                        f.writelines(f"{tm()}: State {state} was too long (>{time_criteria} secs). Exiting...\n")
-                        return 0
+                        logger.error(f"State {state} was too long (>{time_criteria} secs). Exiting...")
+                        fl = False
                     else:
-                        f.writelines(f"{tm()}: State {state} still for {time_criteria} secs\n")
+                        logger.info(f"State {state} still for {time_criteria} secs\n")
                 else:
                     last_state = state
                     last_state_time = time.time()
-                    f.writelines(f"{tm()}: Strange state {state} encountered\n")
+                    logger.warning(f"Strange state {state} encountered\n")
             elif state == SStates.RUNNING:
                 last_state = state
                 last_state_time = time.time()
-                f.writelines(f"{tm()}: RUNNING\n")
+                logger.info("RUNNING")
             else:
-                f.writelines(f"{tm()}: HOW?\n")
+                logger.critical("HOW?")
                 raise LogicError("HOW?")
+    except Exception as e:
+        logger.critical("Uncaught exception")
+        logger.critical(str(e))
+        lockfile.unlink()
+        raise
+
+    lockfile.unlink()
+    return 0
 
 
 def main():
     parser = argparse.ArgumentParser(prog='polling.py')
+    parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
     parser.add_argument('--jobid', action='store', type=int, help='Slurm job ID')
+    parser.add_argument('--tag', action='store', type=int, help='Project tag')
     parser.add_argument('--every', action='store', type=int, help='Perform poll every N-minutes')
     parser.add_argument('cwd', action='store', type=str, help='Current working directory')
     args = parser.parse_args()

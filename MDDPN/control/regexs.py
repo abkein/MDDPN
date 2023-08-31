@@ -6,27 +6,33 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-04-2023 21:29:27
+# Last modified: 31-08-2023 10:34:29
 
-variable_equal_numeric = r"^variable[ \t]+[a-zA-Z]+[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+"
-variable_equal_formula = r"^variable[ \t]+[a-zA-Z]+[ \t]+equal[ \t]+\$\(.+\)"
+variable_equal_numeric = r"^variable\s+[a-zA-Z_]+\s+equal\s+[\d]+[\.\/]?\d+"
+variable_equal_formula = r"^variable\s+[a-zA-Z_]+\s+equal\s+\$\(.+\)"
 
-run_numeric = r"^run[ \t]+\d+[.\/]?\d+"
-run_formula = r"^run[ \t]+\${[a-zA-Z]+}"
+run_numeric = r"^run\s+\d+[.\/]?\d+"
+run_formula = r"^run\s+\$\{[a-zA-Z_]+\}"
 
-set_timestep = r"^timestep[ \t]+[\d]+[\.\/]?\d+"
-set_restart = r"restart[ \t]+(\$\{[a-zA-Z]+\}|[\d]+)[ \t]+[a-zA-Z]+\.\*"
-set_dump = r"dump[ \t]+[a-zA-Z]+[ \t]+[a-zA-Z]+[ \t]+atom\/adios[ \t]+(\$\{[a-zA-Z]+\}|\d+)[ \t]+[a-zA-Z\.\/]+"
+set_timestep_num = r"^timestep\s+[\d]+[\.\/]?\d+"
+set_timestep_equ = r"^timestep\s+\$\{[a-zA-Z_]+\}"
+set_restart_num = r"^restart\s+\d+\s+[a-zA-Z]+\.\*"
+set_restart_equ = r"^restart\s+\$\{[a-zA-Z_]+\}\s+[a-zA-Z]+\.\*"
+# set_restart = r"^restart\s+(\$\{[a-zA-Z]+\}|[\d]+)\s+[a-zA-Z]+\.\*"
+set_dump = r"^dump\s+[a-zA-Z]+\s+[a-zA-Z]+\s+atom\/adios\s+(\$\{[a-zA-Z]+\}|\d+)\s+[a-zA-Z\.\/]+"
 
-label_declaration = r"#[ \t]+label:[ \t][a-zA-Z]+"
+label_declaration = r"^#\s+label:\s[a-zA-Z]+"
+
+
+sbatch_jobid = r"^Submitted\s+batch\s+job\s+\d+"
 
 
 def required_variable_equal_numeric(var) -> str:
-    return r"^variable[ \t]+" + str(var) + r"[ ,\t]+equal[ ,\t]+[\d]+[\.\/]?\d+"
+    return r"^variable\s+" + str(var) + r"\s+equal\s+[\d]+[\.\/]?\d+"
 
 
 def read_restart_specify(restart_file):
-    return r"read_restart[ \t]+" + restart_file + r"\d+"
+    return r"read_restart\s+" + restart_file + r"\d+"
 
 
 if __name__ == "__main__":

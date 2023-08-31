@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 27-07-2023 11:52:04
+# Last modified: 28-07-2023 09:42:16
 
 import csv
 import json
@@ -124,19 +124,35 @@ def get_named_moment(cwd: Path, son: Dict, data_file: Path, val: str, dis: int) 
         raise Exception(f"Unknown named moment: {val}")
 
 
-def dist_getter(cwd: Path, args: argparse.Namespace, son: Dict, data_file: Path, dt: float, dis: int, sizes: npt.NDArray[np.uint64]):
+def dist_getter(cwd: Path, args: argparse.Namespace, son: Dict, data_file: Path, dt: float, dis: int, sizes: npt.NDArray[np.uint64], cut: int):
     if args.method == 'name':
         dist: npt.NDArray[np.uint64] = get_named_moment(cwd, son, data_file, str(args.value), dis)
     elif args.method == 'abs':
-        dist = get_spec_step(data_file, args.value / dt / dis)
+        dist = get_spec_step(data_file, round(args.value / dt / dis))
     elif args.method == 'step':
-        dist = get_spec_step(data_file, args.value / dis)
+        dist = get_spec_step(data_file, round(args.value / dis))
     elif args.method == 'num':
-        dist = get_spec_step(data_file, args.value)
+        dist = get_spec_step(data_file, round(args.value))
     else:
         raise Exception("Unknown method")
-    fs = cwd / ("dist" + str(args.value) + ".csv")
-    pd.DataFrame(np.vstack([sizes, dist])).to_csv(fs, header=False, index=False)
+
+    fs = cwd / ("dist" + f"{args.value}_{args.suffix}" + ".csv")
+
+    if args.type == 'win':
+        dist_buff: npt.NDArray[np.float32] = np.array([0, 0], dtype=np.float32)
+        h = args.h
+        i = 0
+        while i < cut:
+            val = np.sum(dist[i:i+h]) / h / son[cs.cf.volume]
+            dist_buff = np.vstack([dist_buff, (i, val)])
+            i += h
+            h += args.dh
+        pd.DataFrame(dist_buff[1:, :], dtype=np.float32).to_csv(fs, header=False, index=False)
+    elif args.type == 'norm':
+        pd.DataFrame(np.vstack([sizes, dist])).to_csv(fs, header=False, index=False)
+    else:
+        raise Exception(f"Unknown type: {args.type}")
+
     return 0
 
 
@@ -160,11 +176,8 @@ def run(cwd: Path, args: argparse.Namespace, son: Dict, data_file: Path, dis: in
     kmin = 0
     for i in range(len(Sdist)):
         dat = np.sum(Sdist[:i])
-        # utils.printProgressBar(i, len(Sdist), suffix="|" + str(np.sum(dat)) + "|")
         if dat >= eps * N_atoms:
             kmin = i + 1
-            # print()
-            # print(f"kmin is {kmin}")
             break
 
     print(f"kmin is {kmin}")
@@ -183,6 +196,11 @@ def main():
     parser_run.add_argument('--eps', action='store', type=float, default=0.95, required=False, help='Epsilon')
 
     parser_dist = sub_parsers.add_parser('dist', help='Get specific distribution')
+    parser_dist.add_argument('--type', action='store', type=str, default='norm', required=False, help='File to proceed')
+    parser_dist.add_argument('--h', action='store', type=int, default=1, required=False, help='Window width')
+    parser_dist.add_argument('--dh', action='store', type=int, default=0, required=False, help='Window width increment')
+    parser_dist.add_argument('--suffix', action='store', type=str, default='', required=False, help='Suffix to filename')
+
     dist_sub_parsers = parser_dist.add_subparsers(help='Designation method', dest="method")
     parser_name = dist_sub_parsers.add_parser('name', help='Get by name')
     parser_name.add_argument('value', action='store', type=str, default=None, help='Name of moment')
@@ -221,7 +239,7 @@ def main():
     if args.command == 'run':
         return run(cwd, args, son, data_file, dis, cut, sizes)
     elif args.command == 'dist':
-        return dist_getter(cwd, args, son, data_file, dt, dis, sizes)
+        return dist_getter(cwd, args, son, data_file, dt, dis, sizes, cut)
     else:
         raise Exception(f"Unknown command: {args.command}")
 

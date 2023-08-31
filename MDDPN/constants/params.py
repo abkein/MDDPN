@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:31:02
+# Last modified: 27-08-2023 02:43:32
 
 default_job_name: str = "lammps"
 sbatch_nodes: int = 4
@@ -14,7 +14,7 @@ sbatch_tasks_pn: int = 32
 sbatch_part: str = "medium"
 sbatch_processing_node_count: int = 1
 sbatch_processing_part: str = "small"
-time_criteria = 15 * 60
+time_criteria = 24 * 60 * 60
 
 if __name__ == "__main__":
     pass

@@ -6,14 +6,17 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:31:01
+# Last modified: 31-08-2023 19:16:06
 
 state: str = 'state.json'
 
-params: str = "params.json"
-lammps_exec: str = "/scratch/perevoshchikyy/repos/lammps_al/build/lmp_mpi"
+logfile = "main.log"
+pass_log_prefix: str = ""
+pass_log_suffix: str = ".log"
 
-MDDPN_exec: str = "/scratch/perevoshchikyy/MD/MDDPN/launcher.py"
+restart_lock: str = "restart.lock"
+
+params: str = "params.json"
 
 post_process_state: str = "st.json"
 start_template: str = "START.template"

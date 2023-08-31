@@ -6,11 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:30:37
+# Last modified: 25-07-2023 16:38:48
 
-import sys
-
-from MDDPN.control import polling
+import logging
 
 
-sys.exit(polling.main())
+formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')

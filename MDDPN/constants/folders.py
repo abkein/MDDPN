@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 15:31:01
+# Last modified: 25-08-2023 19:01:04
 
 in_templates: str = "../in.templates/"
 data_processing: str = "data_processing"
@@ -15,6 +15,9 @@ sl: str = "slinfo"
 restarts: str = "restarts"
 dumps: str = "dumps"
 in_file: str = "in_files"
+log: str = "logs"
+pass_log: str = "pass"
+
 
 if __name__ == "__main__":
     pass
