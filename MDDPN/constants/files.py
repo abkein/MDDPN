@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 31-08-2023 19:16:06
+# Last modified: 05-09-2023 19:12:35
 
 state: str = 'state.json'
 
@@ -19,7 +19,8 @@ restart_lock: str = "restart.lock"
 params: str = "params.json"
 
 post_process_state: str = "st.json"
-start_template: str = "START.template"
+# start_template: str = "START.template"
+template: str = "in.template"
 
 cluster_distribution_matrix: str = "matrice.csv"
 data = 'data.json'

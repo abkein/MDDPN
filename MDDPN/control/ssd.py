@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 31-08-2023 20:00:22
+# Last modified: 03-09-2023 12:02:03
 
 
 # TODO:
@@ -43,7 +43,7 @@ def main_main(cwd: Path, args: argparse.Namespace):
     logger = setup_logger(cwd, "ssd", logging.DEBUG if args.debug else logging.INFO)
     logger.info(f"Root folder: {cwd.as_posix()}")
     logger.info(f"Envolved args: {args}")
-    check(logger.getChild("execs_check"))
+    # check(logger.getChild("execs_check"))
     try:
         if args.command == 'init':
             logger.info("'init' command received")
@@ -79,10 +79,10 @@ def main():
     sub_parsers = parser.add_subparsers(help='sub-command help', dest="command")
 
     parser_init = sub_parsers.add_parser('init', help='Initialize directory')
-    parser_init.add_argument('--min', action="store_true", help='Don\'t create in. files')
     parser_init.add_argument("-p", '--params', action="store", type=str, help='Obtain simulation parameters from command-line')
-    parser_init.add_argument("-f", '--file', action="store_true", help='Obtain simulation parameters from file')
-    parser_init.add_argument("-fn", '--fname', action="store", help='Specify file to get parameters from')
+    parser_init.add_argument("-rm", '--restart_mode', action="store", type=str, help='Specify two-filed restarts instead of restart.*')
+    # parser_init.add_argument("-f", '--file', action="store_true", help='Obtain simulation parameters from file')
+    parser_init.add_argument("-fn", '--fname', action="store", type=str, help='Specify file to get parameters from')
 
     parser_set = sub_parsers.add_parser('set', help='Set variable in config json file')
     parser_set.add_argument('file', action="store", type=str, help='File in which set the variable')

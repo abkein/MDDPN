@@ -6,9 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-08-2023 19:01:04
+# Last modified: 03-09-2023 19:47:10
 
-in_templates: str = "../in.templates/"
+in_templates: str = "../in.templates/nonisotermal/"
 data_processing: str = "data_processing"
 special_restarts: str = "special_restarts"
 sl: str = "slinfo"

@@ -6,19 +6,18 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 31-08-2023 20:02:36
+# Last modified: 05-09-2023 22:05:47
 
 import re
 import sys
 import time
-import shlex
 import logging
 import argparse
 from enum import Enum
-import subprocess as sb
 from typing import Tuple
 from pathlib import Path
 
+from .utils import wexec
 from .. import constants as cs
 
 
@@ -82,37 +81,14 @@ class LogicError(Exception):
 
 
 def perform_restart(cwd: Path, logger: logging.Logger) -> Tuple[str, str]:
-    cmd = f"{cs.execs.MDDPN} restart"
-    cmds = shlex.split(cmd)
-    # p = sb.Popen(cmds, start_new_session=True)
-    sbatch = sb.run(cmds, capture_output=True)
-    bout = sbatch.stdout.decode()
-    berr = sbatch.stderr.decode()
-    if sbatch.returncode != 0:
-        logger.error("sbatch returned non-zero exitcode")
-        logger.error("### OUTPUT ###")
-        logger.error("bout")
-        logger.error("### ERROR ###")
-        logger.error(berr)
-        logger.error("")
-        raise RuntimeError("Sacct returned non-zero exitcode")
+    cmd = f"{cs.execs.MDDPN} --debug restart"
+    bout, berr = wexec(cmd, logger.getChild('MDDPN'))
     return bout, berr
 
 
 def perform_check(jobid: int, logger: logging.Logger) -> SStates:
     cmd = f"{cs.execs.sacct} -j {jobid} -n -p -o jobid,state"
-    cmds = shlex.split(cmd)
-    sacct = sb.run(cmds, capture_output=True)
-    bout = sacct.stdout.decode()
-    berr = sacct.stderr.decode()
-    if sacct.returncode != 0:
-        logger.error("Sacct returned non-zero exitcode")
-        logger.error("### OUTPUT ###")
-        logger.error("bout")
-        logger.error("### ERROR ###")
-        logger.error(berr)
-        logger.error("")
-        raise RuntimeError("Sacct returned non-zero exitcode")
+    bout, berr = wexec(cmd, logger.getChild('sacct'))
     for line in bout.splitlines():
         if re.match(r"^\d+\|[a-zA-Z]+\|", line):
             return SStates(line.split('|')[1])
@@ -160,6 +136,7 @@ def loop(cwd: Path, args: argparse.Namespace):
             logger.info(f"Job state: {str(state)}")
             if state in states_to_restart:
                 logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
+                lockfile.unlink()
                 lout, lerr = perform_restart(cwd, logger.getChild("restart"))
                 logger.info("Succesfully restarted task. Exiting...")
                 logger.debug("#####  Normal output:  #####")
@@ -196,7 +173,7 @@ def loop(cwd: Path, args: argparse.Namespace):
     except Exception as e:
         logger.critical("Uncaught exception")
         logger.critical(str(e))
-        lockfile.unlink()
+        # lockfile.unlink()
         raise
 
     lockfile.unlink()

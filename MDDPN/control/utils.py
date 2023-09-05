@@ -6,17 +6,18 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 31-08-2023 19:45:27
+# Last modified: 05-09-2023 20:47:37
 
 import os
 import json
 import errno
+import shlex
 import logging
 import argparse
 import subprocess as sb
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Dict
+from typing import Generator, Dict, Tuple
 from contextlib import contextmanager
 
 from .. import constants as cs
@@ -36,6 +37,20 @@ class STRNodes(str, Enum):
     HOST = 'host'
     ANGR = 'angr'
     ALL = 'all'
+
+
+class RestartMode(str, Enum):
+    none = "None"
+    one = 'one'
+    two = 'two'
+    multiple = 'multiple'
+
+
+class Part(str, Enum):
+    none = "None"
+    start = "start"
+    save = "save"
+    run = "run"
 
 
 class LogicError(Exception):
@@ -81,7 +96,23 @@ def load_state(cwd) -> Generator:
         yield state
     finally:
         with stf.open('w') as f:
-            json.dump(state, f)
+            json.dump(state, f, indent=4)
+
+
+def wexec(cmd: str, logger: logging.Logger) -> Tuple[str, str]:
+    cmds = shlex.split(cmd)
+    proc = sb.run(cmds, capture_output=True)
+    bout = proc.stdout.decode()
+    berr = proc.stderr.decode()
+    if proc.returncode != 0:
+        logger.error("Process returned non-zero exitcode")
+        logger.error("### OUTPUT ###")
+        logger.error("bout")
+        logger.error("### ERROR ###")
+        logger.error(berr)
+        logger.error("")
+        raise RuntimeError("Process returned non-zero exitcode")
+    return bout, berr
 
 
 def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Logger:
@@ -109,6 +140,22 @@ def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Log
     logger.addHandler(handler_pass)
 
     return logger
+
+
+def try_eval(equ: str, vars: Dict, logger: logging.Logger):
+    logger.debug(f"    Formula: '{equ}'")
+    try:
+        eval_val = eval(equ,  globals(), vars)
+    except NameError as e:
+        logger.critical(str(e))
+        logger.critical(f"Unable to evaluate '{equ}', some variables lost")
+        raise
+    except Exception as e:
+        logger.critical(str(e))
+        logger.critical(f"Unable to evaluate '{equ}', unknown error")
+        raise
+    logger.debug(f"    Evaluated value: {eval_val}")
+    return eval_val
 
 
 if __name__ == "__main__":
