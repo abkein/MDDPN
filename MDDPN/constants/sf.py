@@ -6,11 +6,13 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 16:38:48
+# Last modified: 27-08-2023 02:15:25
 
 from .union import time_step, restart_every
 
+
 state: str = 'state'
+tag: str = 'tag'
 restart: str = 'restart_count'
 in_file: str = "in.file"
 jobs_list: str = "jobs"

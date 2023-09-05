@@ -32,7 +32,7 @@ def state_runs_check(state: dict) -> bool:
         prc = rlabels[label][cs.sf.runs]
         if prc != rc:
             fl = False
-            warnings.warn(f"Label {label} runs: present={prc}, real={rc}, changing")
+            warnings.warn(f"Label {label} runs: present={prc}, real={rc}")
     return fl
 
 

@@ -6,9 +6,10 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 12:24:09
+# Last modified: 31-08-2023 19:52:24
 
 import json
+import logging
 import re
 import shlex
 import argparse
@@ -19,16 +20,23 @@ from typing import Dict
 
 from .. import constants as cs
 from .utils import STRNodes
+from . import regexs as rs
 
 
-def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int) -> None:
+def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int, tag: int, logger: logging.Logger) -> None:
     every = 5
-    cmd = f"polling.py --jobid {sb_jobid} --every {every} '{cwd.as_posix()}'"
+    if args.debug:
+        cmd = f"polling.py --debug --tag {tag} --jobid {sb_jobid} --every {every} '{cwd.as_posix()}'"
+    else:
+        cmd = f"polling.py --tag {tag} --jobid {sb_jobid} --every {every} '{cwd.as_posix()}'"
+    logger.info("Starting poll process")
+    logger.debug(f"    {cmd}")
     cmds = shlex.split(cmd)
     sb.Popen(cmds, start_new_session=True)
 
 
-def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
+def perform_run(cwd: Path, in_file_name: Path, state: Dict, logger: logging.Logger) -> int:
+    logger.info("Preparing...")
     sldir = Path(state[cs.sf.slurm_directory])
     tdir = sldir / str(state[cs.sf.run_counter])
     tdir.mkdir(parents=True, exist_ok=True)
@@ -54,17 +62,28 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict) -> int:
         fh.writelines(f"#SBATCH --nodes={cs.params.sbatch_nodes}\n")
         fh.writelines(f"#SBATCH --ntasks-per-node={cs.params.sbatch_tasks_pn}\n")
         fh.writelines(f"#SBATCH --partition={cs.params.sbatch_part}\n")
-        fh.writelines(f"srun -u {cs.files.lammps_exec} -in {cs.folders.in_file}/{in_file_name}")
+        fh.writelines(f"srun -u {cs.execs.lammps} -in {cs.folders.in_file}/{in_file_name}")
 
-    sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
+    logger.info("Submitting task...")
+    sbatch = sb.run([cs.execs.sbatch, f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')
-    if re.match(r"^Submitted[ \t]+batch[ \t]+job[ \t]+\d+", bout):
+    berr = sbatch.stderr.decode('ascii')
+    if sbatch.returncode != 0:
+        logger.error("Sbatch returned non-zero exitcode")
+        logger.error("### OUTPUT ###")
+        logger.error("bout")
+        logger.error("### ERROR ###")
+        logger.error(berr)
+        logger.error("")
+        raise RuntimeError("Sbatch returned non-zero exitcode")
+    if re.match(rs.sbatch_jobid, bout):
         *beg, num = bout.split()
         print("Sbatch jobid: ", num)
+        logger.info(f"Sbatch jobid: {num}")
     else:
-        print("SBATCH OUTPUT:")
-        print(bout)
-        print()
+        logger.error("Cannot parse sbatch jobid")
+        logger.error("### OUTPUT ###")
+        logger.error("bout")
         raise RuntimeError("sbatch command not returned task jobid")
     return int(num)
 
@@ -112,7 +131,7 @@ def perform_processing_run(cwd: Path, state: Dict, params: str = None, part: str
         # fh.writelines(
         #     f"LD_PRELOAD=/usr/lib64/libhdf5.so.10 srun -u {cs.MDDPN_exec} {params_line}")
         fh.writelines(
-            f"srun -u {cs.files.MDDPN_exec} {params_line}")
+            f"srun -u {cs.execs.MDDPN} {params_line}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

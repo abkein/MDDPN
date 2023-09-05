@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-07-2023 21:05:28
+# Last modified: 31-08-2023 20:00:22
 
 
 # TODO:
@@ -14,34 +14,62 @@
 
 
 import argparse
+import logging
 from pathlib import Path
 
 from .init import init
 from .run import run, restart
 from .post_process import end
-from .utils import com_set, load_state, STRNodes
+from .utils import com_set, load_state, STRNodes, setup_logger, is_tool
+from ..constants import execs
+
+
+def check(logger: logging.Logger):
+    if not is_tool(execs.MDDPN):
+        logger.error("MDDPN executable not found")
+        raise FileNotFoundError("MDDPN executable not found")
+    if not is_tool(execs.sacct):
+        logger.error("sacct executable not found")
+        raise FileNotFoundError("sacct executable not found")
+    if not is_tool(execs.lammps):
+        logger.error("lammps executable not found")
+        raise FileNotFoundError("lammps executable not found")
+    if not is_tool(execs.sbatch):
+        logger.error("sbatch executable not found")
+        raise FileNotFoundError("sbatch executable not found")
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
-    if args.debug:
-        print("Envolved args:")
-        print(args)
-        return 0
-    elif args.command == 'init':
-        return init(cwd, args)
-    else:
-        with load_state(cwd) as state:
-            if args.command == 'run':
-                state = run(cwd, state, args)
-            elif args.command == 'restart':
-                state = restart(cwd, state, args)
-            elif args.command == 'end':
-                # raise NotImplementedError("Don't use it until it fixed")
-                state = end(cwd, state, args)
-            elif args.command == 'set':
-                return com_set(cwd, args)
-            else:
-                raise RuntimeError(f"There is no such command as {args.command}")
+    logger = setup_logger(cwd, "ssd", logging.DEBUG if args.debug else logging.INFO)
+    logger.info(f"Root folder: {cwd.as_posix()}")
+    logger.info(f"Envolved args: {args}")
+    check(logger.getChild("execs_check"))
+    try:
+        if args.command == 'init':
+            logger.info("'init' command received")
+            return init(cwd, args, logger.getChild("init"))
+        else:
+            with load_state(cwd) as state:
+                if args.command == 'run':
+                    logger.info(msg="'run' command received")
+                    state = run(cwd, state, args, logger.getChild("run"))
+                elif args.command == 'restart':
+                    logger.info(msg="'restart' command received")
+                    state = restart(cwd, state, args, logger.getChild("restart"))
+                elif args.command == 'end':
+                    logger.info("'end' command received")
+                    state = end(cwd, state, args)
+                elif args.command == 'set':
+                    logger.info("'set' command received")
+                    state = com_set(cwd, args)
+                else:
+                    logger.critical(f"Unknown '{args.command}' command received")
+                    raise RuntimeError(f"There is no such command as {args.command}")
+    except Exception as e:
+        logger.critical("Uncaught exception")
+        logger.critical(str(e))
+        raise
+    return 0
 
 
 def main():
