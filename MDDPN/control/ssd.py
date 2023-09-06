@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 03-09-2023 12:02:03
+# Last modified: 06-09-2023 20:36:02
 
 
 # TODO:
@@ -16,10 +16,12 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import Dict
+import importlib
 
 from .init import init
 from .run import run, restart
-from .post_process import end
+# from .post_process import end
 from .utils import com_set, load_state, STRNodes, setup_logger, is_tool
 from ..constants import execs
 
@@ -37,6 +39,13 @@ def check(logger: logging.Logger):
     if not is_tool(execs.sbatch):
         logger.error("sbatch executable not found")
         raise FileNotFoundError("sbatch executable not found")
+
+
+def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict:
+    logger.info(f"Trying to import MDDPN.post_processing.{args.version}")
+    processor = importlib.import_module(f"MDDPN.post_processing.{args.version}")
+    logger.info("Import successful, calling")
+    return processor.end(cwd, state, args, logger.getChild(f"post_processing.{args.version}.end"))
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
@@ -58,7 +67,7 @@ def main_main(cwd: Path, args: argparse.Namespace):
                     state = restart(cwd, state, args, logger.getChild("restart"))
                 elif args.command == 'end':
                     logger.info("'end' command received")
-                    state = end(cwd, state, args)
+                    state = ender(cwd, state, args, logger.getChild('ender'))
                 elif args.command == 'set':
                     logger.info("'set' command received")
                     state = com_set(cwd, args)
@@ -100,6 +109,7 @@ def main():
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
     parser_end.add_argument('--params', action='store', type=str, default=None, help='Post-processing parameters')
+    parser_end.add_argument('--version', action='store', type=int, default=1, help='Post-processing parameters')
     parser_end.add_argument('--part', action='store', type=str, default=None, help='Set partition (defaulting to small)')
     parser_end.add_argument('--nodes', action='store', type=STRNodes, default=STRNodes.ALL, help='Set nodes (default all possible)')
     # parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')

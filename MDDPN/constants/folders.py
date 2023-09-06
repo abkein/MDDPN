@@ -17,6 +17,7 @@ dumps: str = "dumps"
 in_file: str = "in_files"
 log: str = "logs"
 pass_log: str = "pass"
+post_process_log: str = "post_process"
 
 
 if __name__ == "__main__":

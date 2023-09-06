@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 31-08-2023 19:52:24
+# Last modified: 06-09-2023 20:59:17
 
 import json
 import logging
@@ -88,7 +88,7 @@ def perform_run(cwd: Path, in_file_name: Path, state: Dict, logger: logging.Logg
     return int(num)
 
 
-def perform_processing_run(cwd: Path, state: Dict, params: str = None, part: str = None, nodes: STRNodes = STRNodes.ALL) -> int:  # type: ignore
+def perform_processing_run(cwd: Path, state: Dict, executable: Path, nnodes: int, ntpn: int, params: str = None, part: str = None, nodes: STRNodes = STRNodes.ALL) -> int:  # type: ignore
     sldir = Path(state[cs.sf.slurm_directory])
     tdir = sldir / cs.folders.data_processing
     tdir.mkdir(parents=True, exist_ok=True)
@@ -116,8 +116,8 @@ def perform_processing_run(cwd: Path, state: Dict, params: str = None, part: str
         fh.writelines("#SBATCH --mail-user=perevoshchikyy@mpei.ru\n")
         fh.writelines("#SBATCH --begin=now\n")
 
-        fh.writelines(f"#SBATCH --nodes={cs.params.sbatch_processing_node_count}\n")
-        fh.writelines(f"#SBATCH --ntasks-per-node={cs.params.sbatch_tasks_pn}\n")
+        fh.writelines(f"#SBATCH --nodes={nnodes}\n")
+        fh.writelines(f"#SBATCH --ntasks-per-node={ntpn}\n")
         if nodes != STRNodes.ALL:
             if nodes == STRNodes.HOST:
                 fh.writelines("#SBATCH --exclude=angr[1-20]\n")
@@ -131,7 +131,7 @@ def perform_processing_run(cwd: Path, state: Dict, params: str = None, part: str
         # fh.writelines(
         #     f"LD_PRELOAD=/usr/lib64/libhdf5.so.10 srun -u {cs.MDDPN_exec} {params_line}")
         fh.writelines(
-            f"srun -u {cs.execs.MDDPN} {params_line}")
+            f"srun -u {executable.as_posix()} {params_line}")
 
     sbatch = sb.run(["sbatch", f"{job_file}"], capture_output=True)
     bout = sbatch.stdout.decode('ascii')

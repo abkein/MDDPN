@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 22:02:56
+# Last modified: 05-09-2023 22:50:10
 
 import logging
 import re
@@ -77,6 +77,7 @@ def gen_restart(cwd: Path, state: Dict, logger: logging.Logger, num: int, curren
     logger.debug("Start line by line rewriting")
     with out_file_tmp.open('r') as fin, out_file.open('w') as fout:
         fout.write(f"read_restart {restart_file_name}\n")
+        fout.write("run 0\n")
         for i, line in enumerate(fin):
             if re.match(rs.part_spec, line):
                 logger.debug(f"Line {i}, part declaration")
