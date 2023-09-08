@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 20:47:37
+# Last modified: 08-09-2023 20:17:16
 
 import os
 import json
@@ -17,10 +17,10 @@ import argparse
 import subprocess as sb
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Dict, Tuple
+from typing import Generator, Dict
 from contextlib import contextmanager
 
-from .. import constants as cs
+from . import constants as cs
 
 
 class states(str, Enum):
@@ -29,14 +29,7 @@ class states(str, Enum):
     started = "started"
     restarted = "restarted"
     comleted = "comleted"
-    cluster_analysis_comleted = "cluster_analysis_comleted"
-    data_obtained = "data_obtained"
-
-
-class STRNodes(str, Enum):
-    HOST = 'host'
-    ANGR = 'angr'
-    ALL = 'all'
+    post_processor_called = "post_processor_called"
 
 
 class RestartMode(str, Enum):
@@ -73,6 +66,24 @@ def find_exec(prog):
         return sb.call([cmd, prog])
 
 
+def is_exe(fpath: str, exit: bool = False):
+    if not (os.path.isfile(fpath) and os.access(fpath, os.X_OK)):
+        if not exit:
+            cmd = f"which {fpath}"
+            cmds = shlex.split(cmd)
+            proc = sb.run(cmds, capture_output=True)
+            bout = proc.stdout.decode()
+            # berr = proc.stderr.decode()
+            if proc.returncode != 0:
+                return False
+            else:
+                return is_exe(bout.strip(), exit=True)
+        else:
+            return False
+    else:
+        return True
+
+
 def com_set(cwd: Path, args: argparse.Namespace) -> Dict:
     file = cwd / args.file
     if not file.exists():
@@ -97,22 +108,6 @@ def load_state(cwd) -> Generator:
     finally:
         with stf.open('w') as f:
             json.dump(state, f, indent=4)
-
-
-def wexec(cmd: str, logger: logging.Logger) -> Tuple[str, str]:
-    cmds = shlex.split(cmd)
-    proc = sb.run(cmds, capture_output=True)
-    bout = proc.stdout.decode()
-    berr = proc.stderr.decode()
-    if proc.returncode != 0:
-        logger.error("Process returned non-zero exitcode")
-        logger.error("### OUTPUT ###")
-        logger.error("bout")
-        logger.error("### ERROR ###")
-        logger.error(berr)
-        logger.error("")
-        raise RuntimeError("Process returned non-zero exitcode")
-    return bout, berr
 
 
 def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Logger:

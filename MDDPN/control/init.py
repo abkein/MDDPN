@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 21:50:45
+# Last modified: 08-09-2023 23:08:08
 
 import logging
 import re
@@ -19,7 +19,7 @@ from typing import Dict
 from .utils import states, RestartMode
 from . import regexs as rs
 from . import parsers
-from .. import constants as cs
+from . import constants as cs
 
 # TODO:
 # gen_in not properly processes folders
@@ -148,7 +148,7 @@ def check_required_fs(cwd: Path):
     if (n := (cwd / cs.folders.dumps)).exists():
         raise FileExistsError(f"Directory {n.as_posix()} already exists")
     n.mkdir()
-    if (n := (cwd / cs.folders.sl)).exists():
+    if (n := (cwd / cs.folders.slurm)).exists():
         raise FileExistsError(f"Directory {n.as_posix()} already exists")
     n.mkdir()
     if (n := (cwd / cs.folders.data_processing)).exists():
@@ -167,7 +167,7 @@ def init(cwd: Path, args: argparse.Namespace, logger: logging.Logger):
         logger.error(str(e))
         logger.error("Some folders or files were existed")
         raise
-    sldir = cwd / cs.folders.sl
+    # sldir = cwd / cs.folders.sl
 
     state = {cs.sf.state: states.fully_initialized, cs.sf.tag: round(time.time())}
     if args.fname is not None:
@@ -175,8 +175,11 @@ def init(cwd: Path, args: argparse.Namespace, logger: logging.Logger):
         logger.info(f"Trying to get params from file: {pfile.as_posix()}")
         with pfile.open('r') as f:
             variables = json.load(f)
+    elif args.conf:
+        logger.info("Getting params from configuration file")
+        variables = cs.sp.params
     else:
-        logger.info("Parsing params from CLI arguments")
+        logger.info("Getting params from CLI arguments")
         variables = json.loads(args.params)
     logger.debug(f"The following arguments were parsed: {[json.dumps(variables, indent=4)]}")
     state[cs.sf.user_variables] = variables
@@ -197,7 +200,7 @@ def init(cwd: Path, args: argparse.Namespace, logger: logging.Logger):
     state[cs.sf.run_labels]["START"]["0"][cs.sf.in_file] = str(in_file.parts[-1])
     state[cs.sf.run_labels]["START"]["0"][cs.sf.run_no] = 1
     state[cs.sf.run_counter] = 0
-    state[cs.sf.slurm_directory] = str(sldir)
+    # state[cs.sf.slurm_directory] = str(sldir)
     with (cwd / cs.files.state).open('w') as f:
         json.dump(state, f)
     logger.info("Initialization complete")

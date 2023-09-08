@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 22:50:10
+# Last modified: 08-09-2023 20:30:12
 
 import logging
 import re
@@ -17,9 +17,16 @@ from argparse import Namespace as argNamespace
 
 from . import parsers
 from . import regexs as rs
-from .. import constants as cs
-from .utils import RestartMode, states, LogicError, wexec, Part
-from .execution import perform_run, run_polling
+from . import constants as cs
+from .utils import RestartMode, states, LogicError, Part
+from .execution import run_polling
+from .. import sbatch
+from ..utils import wexec
+
+
+def submit_run(cwd: Path, file: Path, logger: logging.Logger):
+    cs.sp.sconf_main[sbatch.cs.fields.args] = f"-in {file.as_posix()}"
+    return sbatch.sbatch.run(cwd, logger.getChild("submitter"), cs.sp.sconf_main)
 
 
 def run(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) -> Dict:
@@ -31,7 +38,8 @@ def run(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) -> D
 
     if not args.test:
         logger.info("Submitting task")
-        sb_jobid = perform_run(cwd, state[cs.sf.run_labels]['START']['0'][cs.sf.in_file], state, logger.getChild("submitter"))
+        infile_path: Path = cwd / cs.folders.in_file / state[cs.sf.run_labels]['START']['0'][cs.sf.in_file]
+        sb_jobid = submit_run(cwd, infile_path, logger)
         logger.info(f"Sbatch jobid: {sb_jobid}")
         state[cs.sf.run_labels]['START']["0"][cs.sf.jobid] = sb_jobid
         state[cs.sf.run_labels]['START'][cs.sf.runs] = 1
@@ -245,7 +253,8 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
 
     if not args.test:
         logger.info("Submitting task")
-        sb_jobid = perform_run(cwd, out_file, state, logger.getChild("submitter"))
+        sb_jobid = submit_run(cwd, out_file, logger)
+        state[cs.sf.run_counter] += 1
 
         state[cs.sf.run_labels][current_label][f"{state[cs.sf.run_labels][current_label][cs.sf.runs]}"] = {
             cs.sf.jobid: sb_jobid, cs.sf.in_file: str(out_file.parts[-1]), cs.sf.ddf: str(dump_file), "run_no": state["run_counter"]}

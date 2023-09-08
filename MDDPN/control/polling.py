@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 22:05:47
+# Last modified: 08-09-2023 20:17:01
 
 import re
 import sys
@@ -14,11 +14,10 @@ import time
 import logging
 import argparse
 from enum import Enum
-from typing import Tuple
 from pathlib import Path
 
-from .utils import wexec
-from .. import constants as cs
+from ..utils import wexec
+from . import constants as cs
 
 
 time_criteria = cs.params.time_criteria
@@ -80,15 +79,15 @@ class LogicError(Exception):
     pass
 
 
-def perform_restart(cwd: Path, logger: logging.Logger) -> Tuple[str, str]:
+def perform_restart(cwd: Path, logger: logging.Logger) -> str:
     cmd = f"{cs.execs.MDDPN} --debug restart"
-    bout, berr = wexec(cmd, logger.getChild('MDDPN'))
-    return bout, berr
+    bout = wexec(cmd, logger.getChild('MDDPN'))
+    return bout
 
 
 def perform_check(jobid: int, logger: logging.Logger) -> SStates:
     cmd = f"{cs.execs.sacct} -j {jobid} -n -p -o jobid,state"
-    bout, berr = wexec(cmd, logger.getChild('sacct'))
+    bout = wexec(cmd, logger.getChild('sacct'))
     for line in bout.splitlines():
         if re.match(r"^\d+\|[a-zA-Z]+\|", line):
             return SStates(line.split('|')[1])
@@ -104,7 +103,7 @@ def loop(cwd: Path, args: argparse.Namespace):
     last_state = SStates.RUNNING
     last_state_time = time.time()
     logfile_name = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
-    logfile = cwd / cs.folders.sl / logfile_name
+    logfile = cwd / cs.folders.slurm / logfile_name
 
     handler = logging.FileHandler(logfile)
     handler.setFormatter(cs.sp.formatter)
@@ -137,12 +136,10 @@ def loop(cwd: Path, args: argparse.Namespace):
             if state in states_to_restart:
                 logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
                 lockfile.unlink()
-                lout, lerr = perform_restart(cwd, logger.getChild("restart"))
+                lout = perform_restart(cwd, logger.getChild("restart"))
                 logger.info("Succesfully restarted task. Exiting...")
                 logger.debug("#####  Normal output:  #####")
                 logger.debug(lout)
-                logger.debug("#####  Errors:  #####")
-                logger.debug(lerr)
                 fl = False
             elif state in failure_states:
                 logger.error(f"Something went wrong with slurm job. State: {str(state)} Exiting...")

@@ -6,74 +6,72 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 06-09-2023 20:36:02
+# Last modified: 08-09-2023 23:30:54
 
 
-# TODO:
-# preparing steps for every label
-
-
-import argparse
 import logging
+import argparse
 from pathlib import Path
-from typing import Dict
-import importlib
+from typing import Dict, Any
 
 from .init import init
 from .run import run, restart
-# from .post_process import end
-from .utils import com_set, load_state, STRNodes, setup_logger, is_tool
-from ..constants import execs
+from . import config
+from .utils import com_set, load_state, setup_logger, states
+from . import constants as cs
 
 
-def check(logger: logging.Logger):
-    if not is_tool(execs.MDDPN):
-        logger.error("MDDPN executable not found")
-        raise FileNotFoundError("MDDPN executable not found")
-    if not is_tool(execs.sacct):
-        logger.error("sacct executable not found")
-        raise FileNotFoundError("sacct executable not found")
-    if not is_tool(execs.lammps):
-        logger.error("lammps executable not found")
-        raise FileNotFoundError("lammps executable not found")
-    if not is_tool(execs.sbatch):
-        logger.error("sbatch executable not found")
-        raise FileNotFoundError("sbatch executable not found")
+def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
+    logger.info(f"Trying to import {cs.sp.post_processor}")
+    import importlib.util
+    import sys
+    spec = importlib.util.spec_from_file_location("module.name", "/path/to/file.py")
+    if spec is None or spec.loader is None:
+        logger.critical(f"Cannot import module by path {cs.sp.post_processor}")
+        raise ImportError()
 
-
-def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict:
-    logger.info(f"Trying to import MDDPN.post_processing.{args.version}")
-    processor = importlib.import_module(f"MDDPN.post_processing.{args.version}")
+    processor = importlib.util.module_from_spec(spec)
+    sys.modules["module.name"] = processor
+    spec.loader.exec_module(processor)
     logger.info("Import successful, calling")
-    return processor.end(cwd, state, args, logger.getChild(f"post_processing.{args.version}.end"))
+    state[cs.sf.state] = states.post_processor_called
+    processor.end(cwd, state.copy(), args, logger.getChild(f"post_processing.{args.version}.end"))
+    return state
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
     logger = setup_logger(cwd, "ssd", logging.DEBUG if args.debug else logging.INFO)
     logger.info(f"Root folder: {cwd.as_posix()}")
     logger.info(f"Envolved args: {args}")
-    # check(logger.getChild("execs_check"))
     try:
-        if args.command == 'init':
-            logger.info("'init' command received")
-            return init(cwd, args, logger.getChild("init"))
+        if args.command == 'genconf':
+            logger.info("'genconf' command received")
+            return config.genconf(cwd / cs.files.config, logger.getChild('genconf'))
+        elif args.command == 'checkconf':
+            logger.info("'checkconf' command received")
+            return config.configure(cwd / cs.files.config, logger.getChild('configure'))
         else:
-            with load_state(cwd) as state:
-                if args.command == 'run':
-                    logger.info(msg="'run' command received")
-                    state = run(cwd, state, args, logger.getChild("run"))
-                elif args.command == 'restart':
-                    logger.info(msg="'restart' command received")
-                    state = restart(cwd, state, args, logger.getChild("restart"))
-                elif args.command == 'end':
-                    logger.info("'end' command received")
-                    state = ender(cwd, state, args, logger.getChild('ender'))
-                elif args.command == 'set':
-                    logger.info("'set' command received")
-                    state = com_set(cwd, args)
-                else:
-                    logger.critical(f"Unknown '{args.command}' command received")
-                    raise RuntimeError(f"There is no such command as {args.command}")
+            config.configure(cwd / cs.files.config, logger.getChild('configure'))
+            if args.command == 'init':
+                logger.info("'init' command received")
+                return init(cwd, args, logger.getChild("init"))
+            else:
+                with load_state(cwd) as state:
+                    if args.command == 'run':
+                        logger.info(msg="'run' command received")
+                        state = run(cwd, state, args, logger.getChild("run"))
+                    elif args.command == 'restart':
+                        logger.info(msg="'restart' command received")
+                        state = restart(cwd, state, args, logger.getChild("restart"))
+                    elif args.command == 'end':
+                        logger.info("'end' command received")
+                        state = ender(cwd, state, args, logger.getChild('ender'))
+                    elif args.command == 'set':
+                        logger.info("'set' command received")
+                        state = com_set(cwd, args)
+                    else:
+                        logger.critical(f"Unknown '{args.command}' command received")
+                        raise RuntimeError(f"There is no such command as {args.command}")
     except Exception as e:
         logger.critical("Uncaught exception")
         logger.critical(str(e))
@@ -83,15 +81,16 @@ def main_main(cwd: Path, args: argparse.Namespace):
 
 def main():
     parser = argparse.ArgumentParser(prog='MDDPN.py')
-    parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
+    parser.add_argument('--debug', action='store_true', help='Sets logging level to debug')
 
     sub_parsers = parser.add_subparsers(help='sub-command help', dest="command")
 
     parser_init = sub_parsers.add_parser('init', help='Initialize directory')
     parser_init.add_argument("-p", '--params', action="store", type=str, help='Obtain simulation parameters from command-line')
-    parser_init.add_argument("-rm", '--restart_mode', action="store", type=str, help='Specify two-filed restarts instead of restart.*')
+    parser_init.add_argument("-rm", '--restart_mode', choices=['one', 'two', 'multiple'], help='Specify two-filed restarts instead of restart.*')
     # parser_init.add_argument("-f", '--file', action="store_true", help='Obtain simulation parameters from file')
     parser_init.add_argument("-fn", '--fname', action="store", type=str, help='Specify file to get parameters from')
+    parser_init.add_argument("-c", dest='conf', action="store_true", help='Get params from configuration file')
 
     parser_set = sub_parsers.add_parser('set', help='Set variable in config json file')
     parser_set.add_argument('file', action="store", type=str, help='File in which set the variable')
@@ -109,10 +108,13 @@ def main():
 
     parser_end = sub_parsers.add_parser('end', help='Post-processing')
     parser_end.add_argument('--params', action='store', type=str, default=None, help='Post-processing parameters')
-    parser_end.add_argument('--version', action='store', type=int, default=1, help='Post-processing parameters')
-    parser_end.add_argument('--part', action='store', type=str, default=None, help='Set partition (defaulting to small)')
-    parser_end.add_argument('--nodes', action='store', type=STRNodes, default=STRNodes.ALL, help='Set nodes (default all possible)')
+    # parser_end.add_argument('--version', action='store', type=int, default=1, help='Post-processing parameters')
+    # parser_end.add_argument('--part', action='store', type=str, default=None, help='Set partition (defaulting to small)')
+    # parser_end.add_argument('--nodes', action='store', type=STRNodes, default=STRNodes.ALL, help='Set nodes (default all possible)')
     # parser_end.add_argument('--files', action='store', type=str, default=None, help='Post-processing parameters')
+
+    parser_gen_conf = sub_parsers.add_parser('genconf', help='Generate config file (all possible options with default values)')
+    parser_check_conf = sub_parsers.add_parser('checkconf', help='Check config file')
 
     args = parser.parse_args()
     cwd = Path.cwd()

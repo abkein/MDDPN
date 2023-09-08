@@ -16,7 +16,7 @@ from typing import Dict, Any
 
 from .utils import RestartMode, try_eval
 from . import regexs as rs
-from .. import constants as cs
+from . import constants as cs
 
 
 def eva(variables: Dict, evaluand: str, logger: logging.Logger):

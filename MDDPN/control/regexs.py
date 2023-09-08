@@ -43,8 +43,6 @@ label_declaration = r"^\s*#\s+label:\s[a-zA-Z]+\s*"
 
 datafile_header = r"^LAMMPS data file via write_data, version \d{1,2} [a-zA-Z]{3} \d{4}, timestep = \d+, units = [a-zA-Z_]+$"
 
-sbatch_jobid = r"^Submitted\s+batch\s+job\s+\d+"
-
 part_spec = r"^\s*# part: [a-zA-Z_]+\s*$"
 
 

@@ -6,9 +6,6 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-07-2023 16:38:48
+# Last modified: 08-09-2023 17:54:48
 
-import logging
-
-
-formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+sbatch_jobid = r"^Submitted\s+batch\s+job\s+\d+"
