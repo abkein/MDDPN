@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 05-09-2023 21:21:24
+# Last modified: 09-09-2023 01:06:11
 
 import re
 import json
@@ -165,3 +165,7 @@ def generator(cwd: Path, state: Dict, logger: logging.Logger, num: int, label: s
             fout.write(line)
     logger.info("Done line by line rewriting")
     return out_in_file
+
+
+if __name__ == "__main__":
+    pass

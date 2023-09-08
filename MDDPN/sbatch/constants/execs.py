@@ -10,3 +10,6 @@
 
 sinfo: str = ''
 sbatch: str = ''
+
+if __name__ == "__main__":
+    pass

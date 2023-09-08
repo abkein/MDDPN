@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 17:39:58
+# Last modified: 09-09-2023 01:05:59
 
 import shlex
 import logging
@@ -25,3 +25,7 @@ def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int, tag: int, lo
     logger.debug(f"    {cmd}")
     cmds = shlex.split(cmd)
     sb.Popen(cmds, start_new_session=True)
+
+
+if __name__ == "__main__":
+    pass

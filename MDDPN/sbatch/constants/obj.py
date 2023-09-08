@@ -15,3 +15,6 @@ partitions: Set[Any] = set()
 nodelist: Dict[str, Set[Any]] = {}
 
 nodes_exclude: Union[Dict[str, Set[Any]], None] = None
+
+if __name__ == "__main__":
+    pass

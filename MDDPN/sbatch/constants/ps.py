@@ -15,3 +15,6 @@ nnodes: Union[int, None] = None
 ntpn: Union[int, None] = None
 partition: Union[str, None] = None
 exclude_str: Union[str, None] = None
+
+if __name__ == "__main__":
+    pass

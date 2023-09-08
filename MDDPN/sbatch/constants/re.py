@@ -6,6 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 17:54:48
+# Last modified: 09-09-2023 01:07:34
 
 sbatch_jobid = r"^Submitted\s+batch\s+job\s+\d+"
+
+if __name__ == "__main__":
+    pass

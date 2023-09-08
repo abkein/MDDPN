@@ -9,3 +9,6 @@
 # Last modified: 08-09-2023 18:06:35
 
 run: str = ""
+
+if __name__ == "__main__":
+    pass

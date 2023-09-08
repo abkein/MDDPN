@@ -21,3 +21,6 @@ nodes_use: str = 'nodes-use'
 
 folder: str = 'folder'
 execs: str = 'execs'
+
+if __name__ == "__main__":
+    pass

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 23:07:39
+# Last modified: 09-09-2023 01:06:51
 
 import logging
 from typing import Dict, Any
@@ -19,3 +19,6 @@ post_processor: str = ''
 
 sconf_main: Dict = {}
 sconf_post: Dict = {}
+
+if __name__ == "__main__":
+    pass

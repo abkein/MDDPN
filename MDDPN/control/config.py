@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 23:14:39
+# Last modified: 09-09-2023 01:05:41
 
 import json
 import logging
@@ -145,3 +145,7 @@ def genconf(conffile: Path, logger: logging.Logger):
         json.dump(conf, fp, indent=4)
 
     return 0
+
+
+if __name__ == "__main__":
+    pass
