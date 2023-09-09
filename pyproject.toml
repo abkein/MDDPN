@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 [project.scripts]
-MDDPN = "src.control.ssd:main"
+MDDPN = "MDDPN.control.ssd:main"
 
 
 [project.urls]
