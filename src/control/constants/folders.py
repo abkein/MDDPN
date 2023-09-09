@@ -9,7 +9,6 @@
 # Last modified: 03-09-2023 19:47:10
 
 in_templates: str = "../in.templates/nonisotermal/"  # this can be overriden at runtime
-data_processing: str = "data_processing"
 special_restarts: str = "special_restarts"
 slurm: str = "slinfo"
 restarts: str = "restarts"
@@ -17,7 +16,6 @@ dumps: str = "dumps"
 in_file: str = "in_files"
 log: str = "logs"
 pass_log: str = "pass"
-post_process_log: str = "post_process"
 
 
 if __name__ == "__main__":

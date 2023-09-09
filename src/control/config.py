@@ -13,9 +13,9 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
+from .. import sbatch
 from .utils import is_exe
 from . import constants as cs
-from .. import sbatch
 
 
 def check(logger: logging.Logger):
@@ -77,7 +77,6 @@ def gensconf(conf: Dict[str, Any], logger: logging.Logger):
         'sacct': cs.execs.sacct,
         'sbatch': cs.execs.sbatch
     }
-    conf[sbatch.cs.fields.executable] = cs.execs.lammps
     return conf
 
 

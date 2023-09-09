@@ -6,37 +6,19 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 23:30:54
+# Last modified: 09-09-2023 21:40:07
 
-
+import sys
 import logging
 import argparse
 from pathlib import Path
-from typing import Dict, Any
 
-from .init import init
-from .run import run, restart
 from . import config
-from .utils import com_set, load_state, setup_logger, states
+from .init import init
+from .ender import ender
 from . import constants as cs
-
-
-def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
-    logger.info(f"Trying to import {cs.sp.post_processor}")
-    import importlib.util
-    import sys
-    spec = importlib.util.spec_from_file_location("module.name", "/path/to/file.py")
-    if spec is None or spec.loader is None:
-        logger.critical(f"Cannot import module by path {cs.sp.post_processor}")
-        raise ImportError()
-
-    processor = importlib.util.module_from_spec(spec)
-    sys.modules["module.name"] = processor
-    spec.loader.exec_module(processor)
-    logger.info("Import successful, calling")
-    state[cs.sf.state] = states.post_processor_called
-    processor.end(cwd, state.copy(), args, logger.getChild(f"post_processing.{args.version}.end"))
-    return state
+from .run import run, restart
+from .utils import com_set, load_state, setup_logger
 
 
 def main_main(cwd: Path, args: argparse.Namespace):
@@ -122,4 +104,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

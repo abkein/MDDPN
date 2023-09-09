@@ -6,25 +6,26 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 20:30:12
+# Last modified: 09-09-2023 21:53:03
 
-import logging
 import re
 import shutil
-from pathlib import Path
+import logging
 from typing import Dict
+from pathlib import Path
 from argparse import Namespace as argNamespace
 
+from .. import sbatch
 from . import parsers
+from ..utils import wexec
 from . import regexs as rs
 from . import constants as cs
-from .utils import RestartMode, states, LogicError, Part
 from .execution import run_polling
-from .. import sbatch
-from ..utils import wexec
+from .utils import RestartMode, states, LogicError, Part
 
 
 def submit_run(cwd: Path, file: Path, logger: logging.Logger):
+    cs.sp.sconf_main[sbatch.cs.fields.executable] = cs.execs.lammps
     cs.sp.sconf_main[sbatch.cs.fields.args] = f"-in {file.as_posix()}"
     return sbatch.sbatch.run(cwd, logger.getChild("submitter"), cs.sp.sconf_main)
 

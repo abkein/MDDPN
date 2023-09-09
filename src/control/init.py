@@ -8,18 +8,18 @@
 
 # Last modified: 08-09-2023 23:08:08
 
-import logging
 import re
 import json
 import time
+import logging
 import argparse
-from pathlib import Path
 from typing import Dict
+from pathlib import Path
 
-from .utils import states, RestartMode
-from . import regexs as rs
 from . import parsers
+from . import regexs as rs
 from . import constants as cs
+from .utils import states, RestartMode
 
 # TODO:
 # gen_in not properly processes folders
@@ -149,9 +149,6 @@ def check_required_fs(cwd: Path):
         raise FileExistsError(f"Directory {n.as_posix()} already exists")
     n.mkdir()
     if (n := (cwd / cs.folders.slurm)).exists():
-        raise FileExistsError(f"Directory {n.as_posix()} already exists")
-    n.mkdir()
-    if (n := (cwd / cs.folders.data_processing)).exists():
         raise FileExistsError(f"Directory {n.as_posix()} already exists")
     n.mkdir()
     if (n := (cwd / cs.folders.special_restarts)).exists():

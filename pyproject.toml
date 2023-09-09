@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "MDDPN"
+version = "0.0.1"
+authors = [{ name = "Egor Perevoshchikov", email = "abkein@abkein.ru" }]
+description = "A package for continiously running LAMMPS on HPC systems with SLURM workload manager, where execution time is limited"
+readme = "README.md"
+license = { text = "MIT License" }
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+
+[project.scripts]
+MDDPN = "src.control.ssd:main"
+
+
+[project.urls]
+"Homepage" = "https://github.com/Architect0rr/MDDPN"
+"Bug Tracker" = "https://github.com/Architect0rr/MDDPN/issues"

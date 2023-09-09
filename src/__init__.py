@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.8
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2023 Perevoshchikov Egor
@@ -6,11 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2023 17:31:36
+# Last modified: 09-09-2023 22:18:55
 
-import sys
-
-from MDDPN.control import ssd
-
-
-sys.exit(ssd.main())
+from .control import MDDPN
+from . import sbatch

@@ -14,9 +14,9 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
-from .utils import RestartMode, try_eval
 from . import regexs as rs
 from . import constants as cs
+from .utils import RestartMode, try_eval
 
 
 def eva(variables: Dict, evaluand: str, logger: logging.Logger):

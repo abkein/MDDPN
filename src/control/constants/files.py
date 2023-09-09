@@ -19,17 +19,6 @@ restart_lock: str = "restart.lock"
 template: str = "in.template"  # this can be overriden at runtime
 params: str = "params.json"  # this can be overriden at runtime
 
-# conf: str = "../MDDPN.conf.py"
-
-# post_process_state: str = "st.json"
-# cluster_distribution_matrix: str = "matrice.csv"
-# data = 'data.json'
-# temperature: str = "temperature.log"
-# temperature_backup: str = "temperature.log.bak"
-# xi_log: str = "xi.log"
-# mat_storage: str = "ntb.bp"
-# comp_data: str = "rdata.csv"  # computed data
-
 
 if __name__ == "__main__":
     pass

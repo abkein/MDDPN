@@ -30,6 +30,7 @@ class states(str, Enum):
     restarted = "restarted"
     comleted = "comleted"
     post_processor_called = "post_processor_called"
+    post_process_done = "post_process_done"
 
 
 class RestartMode(str, Enum):
