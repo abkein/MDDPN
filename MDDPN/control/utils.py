@@ -6,15 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 20:17:16
+# Last modified: 09-09-2023 23:22:22
 
-import os
 import json
-import errno
-import shlex
 import logging
 import argparse
-import subprocess as sb
 from enum import Enum
 from pathlib import Path
 from typing import Generator, Dict
@@ -49,40 +45,6 @@ class Part(str, Enum):
 
 class LogicError(Exception):
     pass
-
-
-def is_tool(name):
-    try:
-        devnull = open(os.devnull)
-        sb.Popen([name], stdout=devnull, stderr=devnull).communicate()
-    except OSError as e:
-        if e.errno == errno.ENOENT:
-            return False
-    return True
-
-
-def find_exec(prog):
-    if is_tool(prog):
-        cmd = "which"
-        return sb.call([cmd, prog])
-
-
-def is_exe(fpath: str, exit: bool = False):
-    if not (os.path.isfile(fpath) and os.access(fpath, os.X_OK)):
-        if not exit:
-            cmd = f"which {fpath}"
-            cmds = shlex.split(cmd)
-            proc = sb.run(cmds, capture_output=True)
-            bout = proc.stdout.decode()
-            # berr = proc.stderr.decode()
-            if proc.returncode != 0:
-                return False
-            else:
-                return is_exe(bout.strip(), exit=True)
-        else:
-            return False
-    else:
-        return True
 
 
 def com_set(cwd: Path, args: argparse.Namespace) -> Dict:

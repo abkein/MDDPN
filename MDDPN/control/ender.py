@@ -6,12 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 20:41:18
+# Last modified: 09-09-2023 23:21:51
 
 import logging
 import argparse
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from .. import sbatch
 from .utils import states
@@ -32,15 +32,18 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     spec.loader.exec_module(processor)
     logger.info("Import successful, calling")
     state[cs.sf.state] = states.post_processor_called
+    executable: Union[str, None]
+    argsuments: Union[str, None]
     try:
-        executable, args = processor.end(cwd, state.copy(), args, logger.getChild("post_processing.end"), cs)
+        executable, argsuments = processor.end(cwd, state.copy(), args, logger.getChild("post_processing.end"))
     except Exception as e:
         logger.error("Post processor raised an exception")
         logger.exception(e)
         return state
+    # if executable
     logger.info("Post processor returned, running sbatch")
     cs.sp.sconf_post[sbatch.cs.fields.executable] = executable
-    cs.sp.sconf_post[sbatch.cs.fields.args] = args
+    cs.sp.sconf_post[sbatch.cs.fields.args] = argsuments
     job_id = sbatch.sbatch.run(cwd, logger.getChild("submitter"), cs.sp.sconf_post)
     state[cs.sf.state] = states.post_process_done
     state[cs.sf.post_process_id] = job_id

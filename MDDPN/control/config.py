@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Dict, Any
 
 from .. import sbatch
-from .utils import is_exe
+from ..utils import is_exe
 from . import constants as cs
 
 

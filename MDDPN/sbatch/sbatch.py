@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 19:59:01
+# Last modified: 09-09-2023 23:20:31
 
 import re
 from pathlib import Path
@@ -46,7 +46,10 @@ def run(cwd: Path, logger: Logger, config: Dict[str, Any], add_conf: Union[Dict,
             fh.writelines(f"#SBATCH --partition={cs.ps.partition}\n")
         if cs.ps.exclude_str is not None:
             fh.writelines(f"#SBATCH --exclude={cs.ps.exclude_str}\n")
-        fh.writelines(f"srun -u {config[cs.fields.executable]} {config[cs.fields.args]}")
+        if config[cs.fields.args] is not None:
+            fh.writelines(f"srun -u {config[cs.fields.executable]} {config[cs.fields.args]}")
+        else:
+            fh.writelines(f"srun -u {config[cs.fields.executable]}")
 
     logger.info("Submitting task...")
     cmd = f"{cs.execs.sbatch} {job_file}"
