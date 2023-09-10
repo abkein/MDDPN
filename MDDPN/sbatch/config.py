@@ -6,13 +6,15 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 21:24:23
+# Last modified: 09-09-2023 23:29:03
 
 import json
 from logging import Logger
 from typing import Dict, Set, Any
 
-from ..utils import wexec
+from hamcrest import is_
+
+from ..utils import wexec, is_exe
 from .utils import ranges
 from . import constants as cs
 
@@ -170,6 +172,13 @@ def basic(conf: Dict[str, Any], logger: Logger):
         cs.ps.ntpn = conf[cs.fields.ntpn]
     if cs.fields.partition in conf:
         cs.ps.partition = conf[cs.fields.partition]
+    if cs.fields.executable in conf:
+        if not is_exe(conf[cs.fields.executable]):
+            logger.error(f"Specified executable {conf[cs.fields.executable]} is not an executable")
+            raise RuntimeError(f"Specified executable {conf[cs.fields.executable]} is not an executable")
+    else:
+        logger.error("Executable is not specified")
+        raise RuntimeError("Executable is not specified")
 
 
 def configure(conf: Dict[str, Any], logger: Logger):

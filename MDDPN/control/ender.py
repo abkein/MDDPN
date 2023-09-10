@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 23:21:51
+# Last modified: 09-09-2023 23:30:35
 
 import logging
 import argparse
@@ -40,7 +40,9 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
         logger.error("Post processor raised an exception")
         logger.exception(e)
         return state
-    # if executable
+    if executable is None:
+        logger.error("Post processor not returned executable")
+        return state
     logger.info("Post processor returned, running sbatch")
     cs.sp.sconf_post[sbatch.cs.fields.executable] = executable
     cs.sp.sconf_post[sbatch.cs.fields.args] = argsuments
