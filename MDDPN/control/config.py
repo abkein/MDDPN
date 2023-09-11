@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 01:05:41
+# Last modified: 11-09-2023 23:22:54
 
 import json
 import logging
@@ -51,6 +51,8 @@ def basic(conf: Dict[str, Any], logger: logging.Logger):
             cs.execs.sacct = execs['sacct']
         if 'sinfo' in execs:
             cs.execs.sinfo = execs['sinfo']
+        if 'MDpoll' in execs:
+            cs.execs.MDpoll = execs['MDpoll']
 
     logger.debug("Getting filenames")
     if 'files' in conf:
@@ -122,6 +124,7 @@ def genconf(conffile: Path, logger: logging.Logger):
     execs['sbatch'] = cs.execs.sbatch
     execs['sacct'] = cs.execs.sacct
     execs['sinfo'] = cs.execs.sinfo
+    execs['MDpoll'] = cs.execs.MDpoll
     conf['execs'] = execs
 
     conf['post_processor'] = "/path/to/my/python/file"
