@@ -6,13 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-09-2023 23:46:13
+# Last modified: 11-09-2023 23:52:32
 
 import json
 from logging import Logger
 from typing import Dict, Set, Any
-
-from hamcrest import is_
 
 from ..utils import wexec, is_exe
 from .utils import ranges
