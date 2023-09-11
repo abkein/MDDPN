@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-09-2023 23:31:58
+# Last modified: 11-09-2023 23:47:12
 
 import json
 import logging
@@ -100,12 +100,12 @@ def configure(conffile: Path, logger: logging.Logger):
         logger.debug("Generating slurm configuration for main runs")
         cs.sp.sconf_main = gensconf(conf['slurm']['main'], logger.getChild('gensconf'))
         logger.debug("Checking slurm configuration for main runs")
-        sbatch.config.configure(cs.sp.sconf_main, logger.getChild('checksconf'))
+        sbatch.config.configure(cs.sp.sconf_main, logger.getChild('checksconf'), is_check=True)
 
         logger.debug("Generating slurm configuration for post processing")
         cs.sp.sconf_post = gensconf(conf['slurm']['post'], logger.getChild('gensconf'))
         logger.debug("Checking slurm configuration for main runs")
-        sbatch.config.configure(cs.sp.sconf_post, logger.getChild('checksconf'))
+        sbatch.config.configure(cs.sp.sconf_post, logger.getChild('checksconf'), is_check=True)
     else:
         logger.info(f"Config file {conffile.as_posix()} was not found")
 

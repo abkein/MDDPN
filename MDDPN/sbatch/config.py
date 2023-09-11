@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 23:29:03
+# Last modified: 11-09-2023 23:46:13
 
 import json
 from logging import Logger
@@ -153,7 +153,7 @@ def gensline(nodelist: Dict[str, Set[Any]]):
     return s[:-1]
 
 
-def basic(conf: Dict[str, Any], logger: Logger):
+def basic(conf: Dict[str, Any], logger: Logger, is_check: bool = False):
     if cs.fields.execs in conf:
         execs = conf[cs.fields.execs]
         if 'sinfo' in execs:
@@ -172,20 +172,21 @@ def basic(conf: Dict[str, Any], logger: Logger):
         cs.ps.ntpn = conf[cs.fields.ntpn]
     if cs.fields.partition in conf:
         cs.ps.partition = conf[cs.fields.partition]
-    if cs.fields.executable in conf:
-        if not is_exe(conf[cs.fields.executable]):
-            logger.error(f"Specified executable {conf[cs.fields.executable]} is not an executable")
-            raise RuntimeError(f"Specified executable {conf[cs.fields.executable]} is not an executable")
-    else:
-        logger.error("Executable is not specified")
-        raise RuntimeError("Executable is not specified")
+    if not is_check:
+        if cs.fields.executable in conf:
+            if not is_exe(conf[cs.fields.executable], logger.getChild('is_exe')):
+                logger.error(f"Specified executable {conf[cs.fields.executable]} is not an executable")
+                raise RuntimeError(f"Specified executable {conf[cs.fields.executable]} is not an executable")
+        else:
+            logger.error("Executable is not specified")
+            raise RuntimeError("Executable is not specified")
 
 
-def configure(conf: Dict[str, Any], logger: Logger):
+def configure(conf: Dict[str, Any], logger: Logger, is_check: bool = False):
     # logger.debug("Following configuration is set")
     # logger.debug(json.dumps(conf))
     logger.debug("Setting basic configuration")
-    basic(conf, logger.getChild('basic'))
+    basic(conf, logger.getChild('basic'), is_check)
     logger.debug("Getting info about nodes, partitions, policies")
     get_info(logger)
     logger.debug("Getting partitions to exclude/use")

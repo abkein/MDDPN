@@ -14,7 +14,7 @@ import argparse
 import subprocess as sb
 from pathlib import Path
 
-from .. import constants as cs
+from . import constants as cs
 
 
 def run_polling(cwd: Path, args: argparse.Namespace, sb_jobid: int, tag: int, logger: logging.Logger) -> None:
