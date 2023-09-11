@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-09-2023 23:22:54
+# Last modified: 11-09-2023 23:31:58
 
 import json
 import logging
@@ -19,21 +19,24 @@ from . import constants as cs
 
 
 def check(logger: logging.Logger):
-    if not is_exe(cs.execs.MDDPN):
+    if not is_exe(cs.execs.MDDPN, logger.getChild('is_exe')):
         logger.error("MDDPN executable not found")
         raise FileNotFoundError("MDDPN executable not found")
-    if not is_exe(cs.execs.sacct):
+    if not is_exe(cs.execs.sacct, logger.getChild('is_exe')):
         logger.error("sacct executable not found")
         raise FileNotFoundError("sacct executable not found")
-    if not is_exe(cs.execs.lammps):
+    if not is_exe(cs.execs.lammps, logger.getChild('is_exe')):
         logger.error("lammps executable not found")
         raise FileNotFoundError("lammps executable not found")
-    if not is_exe(cs.execs.sbatch):
+    if not is_exe(cs.execs.sbatch, logger.getChild('is_exe')):
         logger.error("sbatch executable not found")
         raise FileNotFoundError("sbatch executable not found")
-    if not is_exe(cs.execs.sinfo):
+    if not is_exe(cs.execs.sinfo, logger.getChild('is_exe')):
         logger.error("sinfo executable not found")
         raise FileNotFoundError("sinfo executable not found")
+    if not is_exe(cs.execs.MDpoll, logger.getChild('is_exe')):
+        logger.error("MDpoll executable not found")
+        raise FileNotFoundError("MDpoll executable not found")
 
 
 def basic(conf: Dict[str, Any], logger: logging.Logger):
