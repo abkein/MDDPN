@@ -23,6 +23,7 @@ classifiers = [
 
 [project.scripts]
 MDDPN = "MDDPN.control.ssd:main"
+MDpoll = "MDDPN.control.polling:main"
 
 
 [project.urls]
