@@ -6,14 +6,14 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 23:22:22
+# Last modified: 12-09-2023 10:43:45
 
 import json
 import logging
 import argparse
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Dict
+from typing import Generator, Dict, Any
 from contextlib import contextmanager
 
 from . import constants as cs
@@ -47,7 +47,7 @@ class LogicError(Exception):
     pass
 
 
-def com_set(cwd: Path, args: argparse.Namespace) -> Dict:
+def com_set(cwd: Path, args: argparse.Namespace) -> Dict[str, Any]:
     file = cwd / args.file
     if not file.exists():
         raise FileNotFoundError(f"There is no file {file.as_posix()}")
@@ -60,12 +60,12 @@ def com_set(cwd: Path, args: argparse.Namespace) -> Dict:
 
 
 @contextmanager
-def load_state(cwd) -> Generator:
+def load_state(cwd: Path) -> Generator[Dict[str, Any], Dict[str, Any], None]:
     stf = cwd / cs.files.state
     if not stf.exists():
         raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
     with stf.open('r') as f:
-        state = json.load(f)
+        state: Dict[str, Any] = json.load(f)
     try:
         yield state
     finally:
