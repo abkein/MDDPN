@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 23:45:01
+# Last modified: 14-09-2023 01:05:07
 
 import re
 import sys
@@ -123,8 +123,8 @@ def loop(cwd: Path, jobid: int, every: int, logger: logging.Logger, do_restart: 
             logger.info(f"Job state: {str(state)}")
             if state in states_to_restart:
                 logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
-                # lockfile.unlink()
                 if do_restart:
+                    lockfile.unlink()
                     lout = perform_restart(cwd, logger.getChild("restart"))
                     logger.info("Succesfully restarted task. Exiting...")
                     logger.debug("#####  Normal output:  #####")
