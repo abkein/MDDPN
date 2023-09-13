@@ -6,11 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 23:05:25
+# Last modified: 13-09-2023 18:44:45
 
 in_templates: str = "../in.templates/nonisotermal/"  # this can be overriden at runtime
 special_restarts: str = "special_restarts"
-slurm: str = "slinfo"
+slurm: str = "slurm"
 restarts: str = "restarts"
 dumps: str = "dumps"
 in_file: str = "in_files"
