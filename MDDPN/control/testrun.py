@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 23:40:55
+# Last modified: 14-09-2023 00:40:01
 
 import time
 import shutil
@@ -19,7 +19,8 @@ from . import constants as cs
 
 
 def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
-    new_cwd = Path(cs.folders.def_lin_tmp) / (cs.folders.tmp_dir_basename + f"{round(time.time())}")
+    new_cwd = cwd / ".." / (cs.folders.tmp_dir_basename + f"{round(time.time())}")
+    new_cwd = new_cwd.resolve()
     new_in_file = new_cwd / in_file.relative_to(cwd)
     logger.debug(f"Copying folder to {new_cwd.as_posix()}")
     shutil.copytree(cwd, new_cwd)

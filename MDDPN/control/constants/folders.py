@@ -17,7 +17,7 @@ in_file: str = "in_files"
 log: str = "logs"
 pass_log: str = "pass"
 
-def_lin_tmp: str = "/tmp"
+# def_lin_tmp: str = "/tmp"
 tmp_dir_basename: str = "MDDPN"
 
 if __name__ == "__main__":
