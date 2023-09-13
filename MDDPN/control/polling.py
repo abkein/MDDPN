@@ -123,7 +123,7 @@ def loop(cwd: Path, jobid: int, every: int, logger: logging.Logger, do_restart: 
             logger.info(f"Job state: {str(state)}")
             if state in states_to_restart:
                 logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
-                lockfile.unlink()
+                # lockfile.unlink()
                 if do_restart:
                     lout = perform_restart(cwd, logger.getChild("restart"))
                     logger.info("Succesfully restarted task. Exiting...")
