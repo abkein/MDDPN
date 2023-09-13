@@ -6,10 +6,10 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 27-08-2023 02:43:32
+# Last modified: 13-09-2023 23:13:38
 
 
-time_criteria = 24 * 60 * 60
+time_criteria = 24 * 60 * 60 * 60
 
 if __name__ == "__main__":
     pass

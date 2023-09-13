@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 20:17:01
+# Last modified: 13-09-2023 23:45:01
 
 import re
 import sys
@@ -18,6 +18,7 @@ from pathlib import Path
 
 from ..utils import wexec
 from . import constants as cs
+from .utils import LogicError
 
 
 time_criteria = cs.params.time_criteria
@@ -69,14 +70,10 @@ states_str = ["BOOT_FAIL", "CANCELLED", "COMPLETED", "CONFIGURING", "COMPLETING"
               "RESV_DEL_HOLD", "REQUEUE_FED", "REQUEUE_HOLD", "REQUEUED", "RESIZING", "REVOKED", "SIGNALING", "SPECIAL_EXIT", "STAGE_OUT", "STOPPED", "SUSPENDED", "TIMEOUT"]
 
 failure_states = [SStates.BOOT_FAIL, SStates.DEADLINE,
-                  SStates.NODE_FAIL, SStates.OUT_OF_MEMORY, SStates.STOPPED, SStates.CANCELLED]
-states_to_restart = [SStates.COMPLETED, SStates.FAILED, SStates.TIMEOUT]
+                  SStates.NODE_FAIL, SStates.OUT_OF_MEMORY, SStates.STOPPED, SStates.CANCELLED, SStates.FAILED]
+states_to_restart = [SStates.COMPLETED, SStates.TIMEOUT]
 
 # unknown_states = [SStates.CONFIGURING, SStates.COMPLETING, SStates.PENDING, SStates.PREEMPTED,  SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
-
-
-class LogicError(Exception):
-    pass
 
 
 def perform_restart(cwd: Path, logger: logging.Logger) -> str:
@@ -98,25 +95,16 @@ def perform_check(jobid: int, logger: logging.Logger) -> SStates:
 #     return str(datetime.now().strftime("%d:%m:%Y-%H:%M:%S"))
 
 
-def loop(cwd: Path, args: argparse.Namespace):
-    jobid = args.jobid
-    last_state = SStates.RUNNING
-    last_state_time = time.time()
-    logfile_name = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
-    logfile = cwd / cs.folders.slurm / logfile_name
-
-    handler = logging.FileHandler(logfile)
-    handler.setFormatter(cs.sp.formatter)
-
-    logger = logging.getLogger('polling')
-    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
-    logger.addHandler(handler)
-
+def loop(cwd: Path, jobid: int, every: int, logger: logging.Logger, do_restart: bool = True):
     lockfile = cwd / cs.files.restart_lock
     if lockfile.exists():
         logger.error(f"Lockfile exists: {lockfile.as_posix()}")
         raise Exception(f"Lockfile exists: {lockfile.as_posix()}")
     lockfile.touch()
+
+    state = SStates.PENDING
+    last_state = SStates.PENDING
+    last_state_time = time.time()
 
     logger.info("Started main loop")
 
@@ -124,7 +112,7 @@ def loop(cwd: Path, args: argparse.Namespace):
 
     try:
         while fl:
-            time.sleep(args.every * 60)
+            time.sleep(every)
             logger.info("Checking job")
             try:
                 state = perform_check(jobid, logger.getChild("task_check"))
@@ -136,10 +124,11 @@ def loop(cwd: Path, args: argparse.Namespace):
             if state in states_to_restart:
                 logger.info(f"Succesfully reached restart state: {str(state)}. Restarting task")
                 lockfile.unlink()
-                lout = perform_restart(cwd, logger.getChild("restart"))
-                logger.info("Succesfully restarted task. Exiting...")
-                logger.debug("#####  Normal output:  #####")
-                logger.debug(lout)
+                if do_restart:
+                    lout = perform_restart(cwd, logger.getChild("restart"))
+                    logger.info("Succesfully restarted task. Exiting...")
+                    logger.debug("#####  Normal output:  #####")
+                    logger.debug(lout)
                 fl = False
             elif state in failure_states:
                 logger.error(f"Something went wrong with slurm job. State: {str(state)} Exiting...")
@@ -174,10 +163,10 @@ def loop(cwd: Path, args: argparse.Namespace):
         raise
 
     lockfile.unlink()
-    return 0
+    return state
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(prog='polling.py')
     parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
     parser.add_argument('--jobid', action='store', type=int, help='Slurm job ID')
@@ -186,7 +175,22 @@ def main():
     parser.add_argument('cwd', action='store', type=str, help='Current working directory')
     args = parser.parse_args()
     cwd = Path.cwd()
-    return loop(cwd, args)
+
+    jobid: int = args.jobid
+
+    logfile_name = str(jobid) + "_" + str(round(time.time())) + "_poll.log"
+    logfile = cwd / cs.folders.slurm / logfile_name
+
+    handler = logging.FileHandler(logfile)
+    handler.setFormatter(cs.sp.formatter)
+
+    logger = logging.getLogger('polling')
+    logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
+    logger.addHandler(handler)
+
+    loop(cwd, jobid, args.every*60, logger)
+
+    return 0
 
 
 if __name__ == "__main__":

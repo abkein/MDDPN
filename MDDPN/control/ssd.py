@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 21:40:07
+# Last modified: 13-09-2023 22:56:59
 
 import sys
 import logging
@@ -14,10 +14,11 @@ import argparse
 from pathlib import Path
 
 from . import config
+from .run import run
 from .init import init
 from .ender import ender
+from .restart import restart
 from . import constants as cs
-from .run import run, restart
 from .utils import com_set, load_state, setup_logger
 
 
@@ -47,7 +48,11 @@ def main_main(cwd: Path, args: argparse.Namespace):
                         state = restart(cwd, state, args, logger.getChild("restart"))
                     elif args.command == 'end':
                         logger.info("'end' command received")
-                        state = ender(cwd, state, args, logger.getChild('ender'))
+                        if not cs.sp.allow_post_process:
+                            logger.error("Post processing disallowed")
+                            return 1
+                        else:
+                            state = ender(cwd, state, args, logger.getChild('ender'))
                     elif args.command == 'set':
                         logger.info("'set' command received")
                         state = com_set(cwd, args)

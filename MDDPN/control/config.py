@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 18:39:14
+# Last modified: 13-09-2023 22:52:46
 
 import json
 import logging
@@ -18,7 +18,7 @@ from ..utils import is_exe
 from . import constants as cs
 
 
-def check(logger: logging.Logger):
+def check(logger: logging.Logger) -> None:
     if not is_exe(cs.execs.MDDPN, logger.getChild('is_exe')):
         logger.error("MDDPN executable not found")
         raise FileNotFoundError("MDDPN executable not found")
@@ -39,7 +39,7 @@ def check(logger: logging.Logger):
         raise FileNotFoundError("MDpoll executable not found")
 
 
-def basic(conf: Dict[str, Any], logger: logging.Logger):
+def basic(conf: Dict[str, Any], logger: logging.Logger) -> None:
     logger.debug("Getting executables paths")
     # print(list(conf.keys()))
     if 'execs' in conf:
@@ -75,8 +75,14 @@ def basic(conf: Dict[str, Any], logger: logging.Logger):
     if 'post_processor' in conf:
         cs.sp.post_processor = conf['post_processor']
 
+    if 'post_processing' in conf:
+        cs.sp.allow_post_process = conf['post_processing']
 
-def gensconf(conf: Dict[str, Any], logger: logging.Logger):
+    if 'test_run' in conf:
+        cs.sp.run_tests = conf['test_run']
+
+
+def gensconf(conf: Dict[str, Any], logger: logging.Logger) -> Dict[str, Any]:
     conf[sbatch.cs.fields.execs] = {
         'sinfo': cs.execs.sinfo,
         'sacct': cs.execs.sacct,
@@ -98,15 +104,34 @@ def configure(conffile: Path, logger: logging.Logger):
         logger.debug("Checking executables")
         check(logger.getChild("execs_check"))
 
+        if 'slurm' not in conf:
+            logger.error("Cannot find 'slurm' entry in configuration file")
+            raise RuntimeError("Cannot find 'slurm' entry in configuration file")
+        if 'main' not in conf['slurm']:
+            logger.error("Cannot find 'slurm.main' entry in configuration file")
+            raise RuntimeError("Cannot find 'slurm.main' entry in configuration file")
         logger.debug("Generating slurm configuration for main runs")
         cs.sp.sconf_main = gensconf(conf['slurm']['main'], logger.getChild('gensconf'))
         logger.debug("Checking slurm configuration for main runs")
         sbatch.config.configure(cs.sp.sconf_main, logger.getChild('checksconf'), is_check=True)
 
-        logger.debug("Generating slurm configuration for post processing")
-        cs.sp.sconf_post = gensconf(conf['slurm']['post'], logger.getChild('gensconf'))
-        logger.debug("Checking slurm configuration for main runs")
-        sbatch.config.configure(cs.sp.sconf_post, logger.getChild('checksconf'), is_check=True)
+        if 'post' in conf['slurm']:
+            logger.debug("Generating slurm configuration for post processing")
+            cs.sp.sconf_post = gensconf(conf['slurm']['post'], logger.getChild('gensconf'))
+            logger.debug("Checking slurm configuration for main runs")
+            sbatch.config.configure(cs.sp.sconf_post, logger.getChild('checksconf'), is_check=True)
+        else:
+            logger.warning("Post processing is disabled due to non-existent 'slurm.post' entry in the configuration file")
+            cs.sp.allow_post_process = False
+
+        if 'test' in conf['slurm']:
+            logger.debug("Generating slurm configuration for testing runs")
+            cs.sp.sconf_test = gensconf(conf['slurm']['test'], logger.getChild('gensconf'))
+            logger.debug("Checking slurm configuration for testing runs")
+            sbatch.config.configure(cs.sp.sconf_test, logger.getChild('checksconf'), is_check=True)
+        else:
+            logger.warning("Test runs are disabled due to non-existent 'slurm.test' entry in the configuration file")
+            cs.sp.run_tests = False
     else:
         logger.info(f"Config file {conffile.as_posix()} was not found")
 
@@ -132,6 +157,8 @@ def genconf(conffile: Path, logger: logging.Logger):
     conf['execs'] = execs
 
     conf['post_processor'] = "/path/to/my/python/file"
+    conf['test_run'] = cs.sp.run_tests
+    conf['post_processing'] = cs.sp.allow_post_process
 
     files = {}
     files['template'] = cs.files.template
@@ -144,8 +171,15 @@ def genconf(conffile: Path, logger: logging.Logger):
     conf['slurm'] = {}
     conf['slurm']['main'] = sbatch.config.genconf()
     del conf['slurm']['main'][sbatch.cs.fields.execs]
-    conf['slurm']['post'] = sbatch.config.genconf()
-    del conf['slurm']['post'][sbatch.cs.fields.execs]
+    del conf['slurm']['main'][sbatch.cs.fields.folder]
+    conf['slurm']['post'] = conf['slurm']['main']
+    conf['slurm']['test'] = conf['slurm']['main']
+    # conf['slurm']['post'] = sbatch.config.genconf()
+    # del conf['slurm']['post'][sbatch.cs.fields.execs]
+    # del conf['slurm']['post'][sbatch.cs.fields.folder]
+    # conf['slurm']['test'] = sbatch.config.genconf()
+    # del conf['slurm']['test'][sbatch.cs.fields.execs]
+    # del conf['slurm']['test'][sbatch.cs.fields.folder]
 
     with conffile.open('w') as fp:
         json.dump(conf, fp, indent=4)
