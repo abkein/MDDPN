@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-09-2023 23:52:32
+# Last modified: 13-09-2023 18:41:16
 
 import json
 from logging import Logger
@@ -194,9 +194,9 @@ def configure(conf: Dict[str, Any], logger: Logger, is_check: bool = False):
 
 
 def genconf() -> Dict[str, Any]:
-    conf = {}
+    conf: Dict[str, Any] = {}
 
-    execs = {}
+    execs: Dict[str, str] = {}
     execs['sinfo'] = 'sinfo'
     execs['sbatch'] = 'sbatch'
     conf[cs.fields.execs] = execs

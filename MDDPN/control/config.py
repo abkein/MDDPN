@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 11-09-2023 23:47:12
+# Last modified: 13-09-2023 18:39:14
 
 import json
 import logging
@@ -82,6 +82,7 @@ def gensconf(conf: Dict[str, Any], logger: logging.Logger):
         'sacct': cs.execs.sacct,
         'sbatch': cs.execs.sbatch
     }
+    conf[sbatch.cs.fields.folder] = cs.folders.slurm
     return conf
 
 
@@ -119,9 +120,9 @@ def genconf(conffile: Path, logger: logging.Logger):
     else:
         logger.debug(f"{conffile.as_posix()} not exists")
 
-    conf = {}
+    conf: Dict[str, Any] = {}
 
-    execs = {}
+    execs: Dict[str, str] = {}
     execs['lammps'] = cs.execs.lammps
     execs['MDDPN'] = cs.execs.MDDPN
     execs['sbatch'] = cs.execs.sbatch

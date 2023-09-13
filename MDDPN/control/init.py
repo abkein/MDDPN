@@ -197,7 +197,6 @@ def init(cwd: Path, args: argparse.Namespace, logger: logging.Logger):
     state[cs.sf.run_labels]["START"]["0"][cs.sf.in_file] = str(in_file.parts[-1])
     state[cs.sf.run_labels]["START"]["0"][cs.sf.run_no] = 1
     state[cs.sf.run_counter] = 0
-    # state[cs.sf.slurm_directory] = str(sldir)
     with (cwd / cs.files.state).open('w') as f:
         json.dump(state, f)
     logger.info("Initialization complete")

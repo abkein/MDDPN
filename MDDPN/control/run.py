@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 21:53:03
+# Last modified: 13-09-2023 18:42:18
 
 import re
 import shutil
@@ -193,7 +193,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
             last_timestep = args.step
         restart_file: Path = cwd / cs.folders.restarts / (state[cs.sf.restart_files] + f".{last_timestep}")
     elif RestartMode(state[cs.sf.restart_mode]) == RestartMode.one:
-        restart_file: Path = cwd / cs.folders.restarts / state[cs.sf.restart_files]
+        restart_file = cwd / cs.folders.restarts / state[cs.sf.restart_files]
         last_timestep = lsfr(restart_file, logger.getChild('lsfr'))
     elif RestartMode(state[cs.sf.restart_mode]) == RestartMode.two:
         restart_file1: Path = cwd / cs.folders.restarts / (state[cs.sf.restart_files] + '.a')
