@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 18:41:16
+# Last modified: 14-09-2023 20:43:35
 
 import json
 from logging import Logger
@@ -170,6 +170,8 @@ def basic(conf: Dict[str, Any], logger: Logger, is_check: bool = False):
         cs.ps.ntpn = conf[cs.fields.ntpn]
     if cs.fields.partition in conf:
         cs.ps.partition = conf[cs.fields.partition]
+    if 'preload' in conf:
+        cs.ps.pre = conf['preload']
     if not is_check:
         if cs.fields.executable in conf:
             if not is_exe(conf[cs.fields.executable], logger.getChild('is_exe')):
@@ -200,6 +202,7 @@ def genconf() -> Dict[str, Any]:
     execs['sinfo'] = 'sinfo'
     execs['sbatch'] = 'sbatch'
     conf[cs.fields.execs] = execs
+    conf['preload'] = cs.ps.pre
 
     conf[cs.fields.jname] = 'SoMeNaMe'
     conf[cs.fields.nnodes] = 1
