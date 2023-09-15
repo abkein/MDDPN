@@ -73,6 +73,12 @@ def basic(conf: Dict[str, Any], logger: logging.Logger) -> None:
         cs.sp.params = conf['params']
 
     if 'post_processor' in conf:
+        if not Path(conf['post_processor']).resolve().exists():
+            logger.error(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
+            raise FileNotFoundError(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
+        if not Path(conf['post_processor']).resolve().is_dir():
+            logger.error("Specified post processor path must be a package, i.e. specified path must be a directory")
+            raise FileNotFoundError("Specified post processor path must be a package, i.e. specified path must be a directory")
         cs.sp.post_processor = conf['post_processor']
 
     if 'post_processing' in conf:

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 23:30:35
+# Last modified: 16-09-2023 02:41:26
 
 import logging
 import argparse
@@ -22,10 +22,28 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     logger.info(f"Trying to import {cs.sp.post_processor}")
     import importlib.util
     import sys
-    spec = importlib.util.spec_from_file_location("post_processor", cs.sp.post_processor)
-    if spec is None or spec.loader is None:
-        logger.critical(f"Cannot import module by path {cs.sp.post_processor}")
-        raise ImportError()
+    processor_path = Path(cs.sp.post_processor).resolve()
+    processor_path_init = processor_path / "__init__.py"
+    if not processor_path_init.exists():
+        with processor_path_init.open('w') as fp:
+            fp.write("""
+                     # This file was automatically created by MDDPN
+
+                     from . import pp
+
+                     """)
+
+    spec = importlib.util.spec_from_file_location(
+        "post_processor",
+        processor_path_init.as_posix(),
+        submodule_search_locations=[processor_path.as_posix()])
+
+    if spec is None:
+        logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+        raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+    elif spec.loader is None:
+        logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+        raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
 
     processor = importlib.util.module_from_spec(spec)
     sys.modules["post_processor"] = processor
@@ -35,7 +53,7 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     executable: Union[str, None]
     argsuments: Union[str, None]
     try:
-        executable, argsuments = processor.end(cwd, state.copy(), args, logger.getChild("post_processing.end"))
+        executable, argsuments = processor.pp.end(cwd, state.copy(), args, logger.getChild("post_processing.end"))
     except Exception as e:
         logger.error("Post processor raised an exception")
         logger.exception(e)
