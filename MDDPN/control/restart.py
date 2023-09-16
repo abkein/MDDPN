@@ -226,7 +226,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
         state[cs.sf.run_counter] += 1
 
         state[cs.sf.run_labels][current_label][f"{state[cs.sf.run_labels][current_label][cs.sf.runs]}"] = {
-            cs.sf.jobid: sb_jobid, cs.sf.in_file: str(out_file.parts[-1]), cs.sf.ddf: str(dump_file), "run_no": state["run_counter"]}
+            cs.sf.jobid: sb_jobid, cs.sf.in_file: str(out_file.parts[-1]), cs.sf.dump_file: str(dump_file), "run_no": state["run_counter"]}
         state[cs.sf.run_labels][current_label][cs.sf.runs] += 1
 
         if not args.no_auto:
