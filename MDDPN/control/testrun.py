@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 19-09-2023 22:54:09
+# Last modified: 19-09-2023 22:59:06
 
 import time
 import shutil
@@ -26,7 +26,7 @@ def gen_ignore(cwd: Path) -> Callable[[str, List[str]], List[str]]:
     def ign(pwd: str, list_files: List[str]) -> List[str]:
         if Path(pwd) == cwd:
             return ignored_folders
-        return []
+        return ignored_folders
     return ign
 
 
@@ -37,7 +37,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
     logger.debug(f"Copying folder to {new_cwd.as_posix()}")
     shutil.copytree(cwd, new_cwd, ignore=gen_ignore(cwd))
     for el in ignored_folders:
-        (cwd / el).mkdir()
+        (cwd / el).mkdir(exist_ok=True)
 
     cs.sp.sconf_test[sbatch.cs.fields.executable] = cs.execs.lammps
     cs.sp.sconf_test[sbatch.cs.fields.args] = f"-skiprun -in {new_in_file.as_posix()}"
