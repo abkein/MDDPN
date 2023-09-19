@@ -6,11 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-09-2023 00:40:01
+# Last modified: 19-09-2023 22:54:09
 
 import time
 import shutil
 import logging
+from typing import List, Callable
 from pathlib import Path
 
 from . import polling
@@ -18,12 +19,25 @@ from .. import sbatch
 from . import constants as cs
 
 
+ignored_folders = [cs.folders.dumps, cs.folders.special_restarts]
+
+
+def gen_ignore(cwd: Path) -> Callable[[str, List[str]], List[str]]:
+    def ign(pwd: str, list_files: List[str]) -> List[str]:
+        if Path(pwd) == cwd:
+            return ignored_folders
+        return []
+    return ign
+
+
 def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
     new_cwd = cwd / ".." / (cs.folders.tmp_dir_basename + f"{round(time.time())}")
     new_cwd = new_cwd.resolve()
     new_in_file = new_cwd / in_file.relative_to(cwd)
     logger.debug(f"Copying folder to {new_cwd.as_posix()}")
-    shutil.copytree(cwd, new_cwd)
+    shutil.copytree(cwd, new_cwd, ignore=gen_ignore(cwd))
+    for el in ignored_folders:
+        (cwd / el).mkdir()
 
     cs.sp.sconf_test[sbatch.cs.fields.executable] = cs.execs.lammps
     cs.sp.sconf_test[sbatch.cs.fields.args] = f"-skiprun -in {new_in_file.as_posix()}"
