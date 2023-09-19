@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 19-09-2023 22:59:06
+# Last modified: 19-09-2023 23:00:34
 
 import time
 import shutil
@@ -37,7 +37,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
     logger.debug(f"Copying folder to {new_cwd.as_posix()}")
     shutil.copytree(cwd, new_cwd, ignore=gen_ignore(cwd))
     for el in ignored_folders:
-        (cwd / el).mkdir(exist_ok=True)
+        (new_cwd / el).mkdir(exist_ok=True)
 
     cs.sp.sconf_test[sbatch.cs.fields.executable] = cs.execs.lammps
     cs.sp.sconf_test[sbatch.cs.fields.args] = f"-skiprun -in {new_in_file.as_posix()}"
