@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 08-09-2023 23:08:08
+# Last modified: 20-09-2023 20:10:19
 
 import re
 import json
@@ -41,6 +41,8 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
     # state[cs.sf.runs] = {}
     state[cs.sf.user_variables]['step'] = 0
     state[cs.sf.user_variables]['temp'] = 0
+    state[cs.sf.user_variables]['test'] = 1
+    state[cs.sf.user_variables]['v_test'] = 1
     state[cs.sf.variables] = {}
     for key, val in state[cs.sf.user_variables].items():
         state[cs.sf.variables][key] = val

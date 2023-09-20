@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 20-09-2023 03:58:19
+# Last modified: 20-09-2023 09:05:20
 
 import re
 import shutil
@@ -21,7 +21,7 @@ from . import regexs as rs
 from .run import submit_run
 from . import constants as cs
 from .execution import run_polling
-from .utils import RestartMode, Part, states, LogicError
+from .utils import RestartMode, states, LogicError
 
 
 def find_last(folder: Path, basename: str) -> int:
@@ -33,68 +33,6 @@ def find_last(folder: Path, basename: str) -> int:
     if len(files) < 1:
         return -1
     return max(files)
-
-
-def gen_restart(cwd: Path, state: Dict, logger: logging.Logger, num: int, current_label: str,  restart_file_name: str) -> Path:
-    logger.info("Generating input file from template")
-    out_file = parsers.generator(cwd, state, logger.getChild('generator'), num, current_label)
-    out_file_tmp_name = out_file.parts[-1] + ".bak"
-    out_file_tmp_parts = list(out_file.parts[:-1]) + [out_file_tmp_name]
-    out_file_tmp = Path(*out_file_tmp_parts)
-
-    logger.info("Generatin restart file")
-
-    shutil.copy(out_file, out_file_tmp)
-    out_file.unlink()
-
-    part = Part.none
-    fl = False
-    was_fl = True
-    label = None
-    logger.debug("Start line by line rewriting")
-    with out_file_tmp.open('r') as fin, out_file.open('w') as fout:
-        fout.write(f"read_restart {restart_file_name}\n")
-        fout.write("run 0\n")
-        for i, line in enumerate(fin):
-            if re.match(rs.part_spec, line):
-                logger.debug(f"Line {i}, part declaration")
-                w_hashtag, w_part, part_name = line.split()
-                part = Part(part_name)
-                if part == Part.run:
-                    cl_run = int(state[cs.sf.run_labels][current_label][cs.sf.runs]) + 1
-                    line += f"write_restart {cs.folders.special_restarts}/restart.tmp.{current_label}.{cl_run}\n"
-                logger.debug(f"    Part: {str(part)}")
-            if part == Part.start:
-                logger.debug(f"Line {i}, start part, skipping")
-                continue
-            elif part == Part.save:
-                pass
-            elif part == Part.run:
-                if re.match(rs.label_declaration, line):
-                    logger.debug(f"Line {i}, label declaration")
-                    if was_fl:
-                        label = line.strip().split()[-1]
-                        logger.debug(f"    Label: {label}")
-                        if label != current_label:
-                            logger.debug(f"    This label will be skipped, because '{label}' is before current label '{current_label}'")
-                            fl = True
-                        else:
-                            logger.debug(f"    Label '{label}' is current label '{current_label}', last of file will be written")
-                            fl = False
-                            was_fl = False
-                    else:
-                        logger.debug(f"    Label '{label}' seems to be after current label '{current_label}'")
-                if fl:
-                    logger.debug(f"Line {i}, skipping label")
-                    continue
-            logger.debug(f"Line {i}, writing")
-            fout.write(line)
-    logger.debug("Done line by line rewriting")
-
-    # shutil.copy(out_file_tmp, out_file)
-    out_file_tmp.unlink()
-
-    return out_file
 
 
 def max_step(state: Dict) -> int:
@@ -218,9 +156,8 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
         return state
 
     logger.info("Generating restart file")
-    # out_file, dump_file = gen_restart(cwd, current_label, last_timestep, state, logger.getChild("gen_restart"))
     num = int(state[cs.sf.run_labels][current_label][cs.sf.runs])
-    out_file = gen_restart(cwd, state, logger.getChild('gen_restart'), num, current_label, restart_file.relative_to(cwd).as_posix())
+    out_file = parsers.gen_restart(cwd, state, logger.getChild('gen_restart'), num, current_label, restart_file.relative_to(cwd).as_posix())
     dump_file = current_label + str(num)
 
     if not args.test:

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 23:44:46
+# Last modified: 20-09-2023 20:11:38
 
 import logging
 from typing import Dict
@@ -26,7 +26,7 @@ def submit_run(cwd: Path, infile: Path, logger: logging.Logger) -> int:
             logger.error("Test run was unsuccessfull")
             raise RuntimeError("Test run was unsuccessfull")
     cs.sp.sconf_main[sbatch.cs.fields.executable] = cs.execs.lammps
-    cs.sp.sconf_main[sbatch.cs.fields.args] = f"-in {infile.as_posix()}"
+    cs.sp.sconf_main[sbatch.cs.fields.args] = f"-v test 1 -in {infile.as_posix()}"
     return sbatch.sbatch.run(cwd, logger.getChild("submitter"), cs.sp.sconf_main)
 
 

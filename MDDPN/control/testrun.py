@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 19-09-2023 23:00:34
+# Last modified: 20-09-2023 20:12:35
 
 import time
 import shutil
@@ -40,7 +40,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
         (new_cwd / el).mkdir(exist_ok=True)
 
     cs.sp.sconf_test[sbatch.cs.fields.executable] = cs.execs.lammps
-    cs.sp.sconf_test[sbatch.cs.fields.args] = f"-skiprun -in {new_in_file.as_posix()}"
+    cs.sp.sconf_test[sbatch.cs.fields.args] = f"-v test 0 -in {new_in_file.as_posix()}"
     logger.info("Submitting test run and waiting it to complete")
     jobid = sbatch.sbatch.run(new_cwd, logger.getChild("submitter"), cs.sp.sconf_test)
     logger.info(f"Submitted test jod id: {jobid}")
