@@ -197,7 +197,7 @@ def gen_restart(cwd: Path, state: Dict, logger: logging.Logger, num: int, curren
                 logger.debug(f"Line {i}, part declaration")
                 w_hashtag, w_part, part_name = line.split()
                 part = Part(part_name)
-                if test and part == Part.run:
+                if part == Part.run:
                     # cl_run = int(state[cs.sf.run_labels][current_label][cs.sf.runs]) + 1
                     # line += f"write_restart {cs.folders.special_restarts}/restart.tmp.{current_label}.{cl_run}\n"
                     line += "run 0\n"
