@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 04-09-2023 22:55:30
+# Last modified: 20-09-2023 03:54:24
 
 variable_equal_numeric = r"^\s*variable\s+[a-zA-Z_\d]+\s+equal\s+\d+[\.\/]?\d+\s*"
 variable_equal_const = r"^\s*variable\s+[a-zA-Z_\d]+\s+equal\s+(\d+|\$\{.*?\})\s*#!const\s*$"
@@ -22,6 +22,8 @@ set_restart = r"^\s*restart\s+.*$"
 restart_one = r"^\s*restart\s+(\d+|\$\{.*?\})\s+[a-zA-Z_/\d]+\.[a-zA-Z_\d]+\s*$"
 restart_two = r"^\s*restart\s+(\d+|\$\{.*?\})\s+[a-zA-Z_/\d]+\.[a-zA-Z_\d]+\s+[a-zA-Z_/\d]+\.[a-zA-Z_\d]\s*$"
 restart_multiple = r"^\s*restart\s+(\d+|\$\{.*?\})\s+[a-zA-Z_/]+\.\*\s*$"
+
+write_restart = r"^\s*write_restart\s+[a-zA-Z_/\.]+\s*$"
 
 set_dump = r"^\s*dump\s+[a-zA-Z_]+\s+[a-zA-Z_]+\s+[a-zA-Z_]+\/?[a-zA-Z_]+\s+(\d+|\$\{[a-zA-Z_\d]+\})\s+[a-zA-Z_\d]+\.?[a-zA-Z_]*(\s+[a-zA-Z_]+)*\s*$"
 

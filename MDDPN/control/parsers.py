@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 09-09-2023 01:06:11
+# Last modified: 20-09-2023 03:57:58
 
 import re
 import json
@@ -146,6 +146,10 @@ def generator(cwd: Path, state: Dict, logger: logging.Logger, num: int, label: s
                 line = f"dump {DUMP_NAME} {GROUP} {DUMP_STYLE} {DUMP_FREQUENCY} {dfn} "
                 line += " ".join(other_args) + "\n"
                 logger.debug(f"Dump file will be {dfn}")
+            elif re.match(rs.write_restart, line):
+                logger.debug(f"Line {i}, found write_restart")
+                logger.debug(f"    Redirecting to '{cs.folders.special_restarts}/{label}.{num}'")
+                line = f"write_restart {cs.folders.special_restarts}/{label}.{num}\n"
             elif re.match(rs.set_restart, line):
                 logger.debug(f"Line {i}, found set restart")
                 rfn = f"{cs.folders.restarts}/{state[cs.sf.restart_files]}"

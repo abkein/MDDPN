@@ -1,2 +1,1 @@
 - [ ] passed user variables are not converted to numbers, for example fractions '3/140' — probably it is needed to use eval() at every variable
-- [ ] implement full automatic 'write_restart' redirect to special restarts folder

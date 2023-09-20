@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-09-2023 01:05:28
+# Last modified: 20-09-2023 03:58:19
 
 import re
 import shutil
@@ -29,7 +29,7 @@ def find_last(folder: Path, basename: str) -> int:
     for file in folder.iterdir():
         filename = file.parts[-1]
         if re.match(r"^" + basename + r"\.\d+$", filename):
-            files += [int(filename.split('.')[-1])]
+            files.append(int(filename.split('.')[-1]))
     if len(files) < 1:
         return -1
     return max(files)
@@ -60,6 +60,9 @@ def gen_restart(cwd: Path, state: Dict, logger: logging.Logger, num: int, curren
                 logger.debug(f"Line {i}, part declaration")
                 w_hashtag, w_part, part_name = line.split()
                 part = Part(part_name)
+                if part == Part.run:
+                    cl_run = int(state[cs.sf.run_labels][current_label][cs.sf.runs]) + 1
+                    line += f"write_restart {cs.folders.special_restarts}/restart.tmp.{current_label}.{cl_run}\n"
                 logger.debug(f"    Part: {str(part)}")
             if part == Part.start:
                 logger.debug(f"Line {i}, start part, skipping")
