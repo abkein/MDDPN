@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 20-09-2023 20:10:19
+# Last modified: 25-09-2023 00:03:15
 
 import re
 import json
@@ -39,14 +39,14 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
     state["clabel"] = "START"
     state["c_lmp_label"] = None
     # state[cs.sf.runs] = {}
-    state[cs.sf.user_variables]['step'] = 0
-    state[cs.sf.user_variables]['temp'] = 0
+    # state[cs.sf.user_variables]['step'] = 0
+    # state[cs.sf.user_variables]['temp'] = 0
     state[cs.sf.user_variables]['test'] = 1
     state[cs.sf.user_variables]['v_test'] = 1
     state[cs.sf.variables] = {}
     for key, val in state[cs.sf.user_variables].items():
-        state[cs.sf.variables][key] = val
-        state[cs.sf.variables]['v_' + key] = val
+        state[cs.sf.variables][key] = eval(val)
+        state[cs.sf.variables]['v_' + key] = eval(val)
     logger.info("Start line by line parsing")
     prev_line = ""
     try:
@@ -84,7 +84,7 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
                     state = parsers.timestep(state, line, logger.getChild('timestep'))
                 elif re.match(rs.run, line):
                     logger.debug(f"Line {i}, found run formula")
-                    state = parsers.run(state, line, logger.getChild('run'))
+                #     state = parsers.run(state, line, logger.getChild('run'))
                 elif re.match(rs.label_declaration, line):
                     logger.debug(f"Line {i}, found new label")
                     state["clabel"] = line.strip().split()[-1]
