@@ -162,7 +162,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
 
     if not args.test:
         logger.info("Submitting task")
-        sb_jobid = submit_run(cwd, out_file, logger)
+        sb_jobid = submit_run(cwd, out_file, logger, state[cs.sf.run_counter] + 1)
         state[cs.sf.run_counter] += 1
 
         state[cs.sf.run_labels][current_label][f"{state[cs.sf.run_labels][current_label][cs.sf.runs]}"] = {

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 16-09-2023 02:41:26
+# Last modified: 24-09-2023 23:07:03
 
 import logging
 import argparse
@@ -16,6 +16,7 @@ from typing import Dict, Any, Union
 from .. import sbatch
 from .utils import states
 from . import constants as cs
+from ..utils import config
 
 
 def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
@@ -64,7 +65,7 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     logger.info("Post processor returned, running sbatch")
     cs.sp.sconf_post[sbatch.cs.fields.executable] = executable
     cs.sp.sconf_post[sbatch.cs.fields.args] = argsuments
-    job_id = sbatch.sbatch.run(cwd, logger.getChild("submitter"), cs.sp.sconf_post)
+    job_id = sbatch.sbatch.run(cwd, logger.getChild("submitter"), config(cs.sp.sconf_post))
     state[cs.sf.state] = states.post_process_done
     state[cs.sf.post_process_id] = job_id
     return state

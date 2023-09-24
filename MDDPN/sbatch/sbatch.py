@@ -6,29 +6,34 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 14-09-2023 20:42:18
+# Last modified: 24-09-2023 23:06:24
 
 import re
 from pathlib import Path
 from logging import Logger
 from typing import Dict, Union, Any
 
-from ..utils import wexec
+from ..utils import wexec, config
 from .config import configure
 from . import constants as cs
 
 
-def run(cwd: Path, logger: Logger, config: Dict[str, Any], add_conf: Union[Dict, None] = None) -> int:
+def run(cwd: Path, logger: Logger, conf: config[str, Any], opt: Union[int, None] = None, add_conf: Union[Dict, None] = None) -> int:
     logger.debug("Preparing...")
     if add_conf is not None:
         for k, v in add_conf.items():
-            config[k] = v
+            conf[k] = v
 
     logger.debug('Configuring...')
-    configure(config, logger.getChild('configure'))
-
-    tdir = cwd / cs.folders.run / cs.ps.jname
+    configure(conf, logger.getChild('configure'))
+    if opt is not None:
+        tdir = cwd / cs.folders.run / (cs.ps.jname + str(opt))
+    else:
+        tdir = cwd / cs.folders.run / cs.ps.jname
     tdir.mkdir(parents=True, exist_ok=True)
+
+    conf['jd'] = tdir.as_posix()
+    conf.sreconf()
 
     job_file = tdir / f"{cs.ps.jname}.job"
 
@@ -46,10 +51,10 @@ def run(cwd: Path, logger: Logger, config: Dict[str, Any], add_conf: Union[Dict,
             fh.writelines(f"#SBATCH --partition={cs.ps.partition}\n")
         if cs.ps.exclude_str is not None:
             fh.writelines(f"#SBATCH --exclude={cs.ps.exclude_str}\n")
-        if config[cs.fields.args] is not None:
-            fh.writelines(f"{cs.ps.pre} srun -u {config[cs.fields.executable]} {config[cs.fields.args]}")
+        if conf[cs.fields.args] is not None:
+            fh.writelines(f"{cs.ps.pre} srun -u {conf[cs.fields.executable]} {conf[cs.fields.args]}")
         else:
-            fh.writelines(f"srun -u {config[cs.fields.executable]}")
+            fh.writelines(f"srun -u {conf[cs.fields.executable]}")
 
     logger.info("Submitting task...")
     cmd = f"{cs.execs.sbatch} {job_file}"
