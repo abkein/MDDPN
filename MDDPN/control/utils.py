@@ -6,8 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 12-09-2023 10:43:45
+# Last modified: 25-09-2023 17:22:01
 
+from _collections_abc import dict_keys
 import json
 import logging
 import argparse
@@ -15,6 +16,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Generator, Dict, Any
 from contextlib import contextmanager
+
+from numpy import r_
 
 from . import constants as cs
 
@@ -100,6 +103,14 @@ def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Log
     return logger
 
 
+def gsr(label: str, obj, cnt: int):
+    if isinstance(obj, dict):
+        if label == list(obj.keys())[0]:
+            return obj[label]*cnt
+
+    return obj
+
+
 def try_eval(equ: str, vars: Dict, logger: logging.Logger):
     logger.debug(f"    Formula: '{equ}'")
     try:
@@ -114,6 +125,20 @@ def try_eval(equ: str, vars: Dict, logger: logging.Logger):
         raise
     logger.debug(f"    Evaluated value: {eval_val}")
     return eval_val
+
+
+
+
+
+def compare_list_items(lst, obj1, obj2):
+    '''returns True if obj1 appears earlier than obj2, Flase otherwise'''
+    if obj1 == obj2:
+        raise RuntimeError("Attempt to compare positions of equal objects")
+    for item in lst:
+        if item == obj2:
+            return False
+        if item == obj1:
+            return True
 
 
 if __name__ == "__main__":

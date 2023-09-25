@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 20-09-2023 20:07:21
+# Last modified: 25-09-2023 15:17:25
 
 import re
 import json
@@ -31,6 +31,32 @@ def eva(variables: Dict, evaluand: str, logger: logging.Logger):
         evaluated = try_eval(evaluand, variables, logger.getChild('try_eval'))
 
     return evaluated
+
+
+def ift(state: Dict, line: str, logger: logging.Logger) -> Dict[str, Any]:
+    line = line.split('#')[0].strip()
+    line = line.replace('"', "").replace("'", "").replace('$', '').replace('{', '').replace('}', '')
+    line = line[2:].strip()
+    condition, outcome = line.split('then')
+    condition = condition.strip()
+    outcome = outcome.strip()
+    mc = re.findall(r"(\W|^)temp(\W|$)", condition)
+    if len(mc) == 0:
+        pass
+    if len(re.findall(rs.jump_inc, line)) > 0:
+        jmp_label = line.split('#')[0].strip().split()[-1]
+        logger.debug("   Jump found in outcome")
+        if state['c_lmp_label'] == jmp_label:
+            logger.debug(f"    Jump and currenl lmp_label are equal '{jmp_label}'")
+            state[cs.sf.run_labels][state["clabel"]] = [(None if isinstance(el, dict) else el) for el in state[cs.sf.run_labels][state["clabel"]]]
+            # state[cs.sf.run_labels][state["clabel"]] = None
+            state['c_lmp_label'] = None
+        else:
+            logger.error(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
+            raise RuntimeError(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
+    else:
+        logger.debug("    Nothing was found in outcome")
+    return state
 
 
 def restart(state: Dict, line: str, logger: logging.Logger) -> Dict[str, Any]:

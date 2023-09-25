@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 00:03:15
+# Last modified: 25-09-2023 16:30:31
 
 import re
 import json
@@ -19,18 +19,10 @@ from pathlib import Path
 from . import parsers
 from . import regexs as rs
 from . import constants as cs
-from .utils import states, RestartMode
+from .utils import states, RestartMode, gsr
 
 # TODO:
 # gen_in not properly processes folders
-
-
-def gsr(label: str, obj, cnt: int):
-    if isinstance(obj, dict):
-        if label == list(obj.keys())[0]:
-            return obj[label]*cnt
-
-    return obj
 
 
 def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
@@ -39,14 +31,15 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
     state["clabel"] = "START"
     state["c_lmp_label"] = None
     # state[cs.sf.runs] = {}
-    # state[cs.sf.user_variables]['step'] = 0
-    # state[cs.sf.user_variables]['temp'] = 0
+    state[cs.sf.user_variables]['step'] = 0
+    state[cs.sf.user_variables]['temp'] = 0
     state[cs.sf.user_variables]['test'] = 1
     state[cs.sf.user_variables]['v_test'] = 1
     state[cs.sf.variables] = {}
     for key, val in state[cs.sf.user_variables].items():
-        state[cs.sf.variables][key] = eval(val)
-        state[cs.sf.variables]['v_' + key] = eval(val)
+        _val = eval(val) if isinstance(val, str) else val
+        state[cs.sf.variables][key] = _val
+        state[cs.sf.variables]['v_' + key] = _val
     logger.info("Start line by line parsing")
     prev_line = ""
     try:
@@ -84,22 +77,28 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
                     state = parsers.timestep(state, line, logger.getChild('timestep'))
                 elif re.match(rs.run, line):
                     logger.debug(f"Line {i}, found run formula")
-                #     state = parsers.run(state, line, logger.getChild('run'))
+                    state = parsers.run(state, line, logger.getChild('run'))
                 elif re.match(rs.label_declaration, line):
                     logger.debug(f"Line {i}, found new label")
+                    if state['c_lmp_label'] is not None:
+                        logger.error("    lmp label was not closed in previous label")
+                        raise RuntimeError("    lmp label was not closed in previous label")
                     state["clabel"] = line.strip().split()[-1]
                     logger.debug(f"    Label: '{state['clabel']}'")
                     state[cs.sf.run_labels][state["clabel"]] = []
                 elif re.match(rs.lmp_label, line):
                     logger.debug(f"Line {i}, found LAMMPS label")
+                    if state['c_lmp_label'] is not None:
+                        logger.error("    Attemting to defile new lmp label, while previous was not closed — nested lmp labels are not supported")
+                        raise RuntimeError("    Attemting to defile new lmp label, while previous was not closed — nested lmp labels are not supported")
                     state['c_lmp_label'] = line.split('#')[0].strip().split()[-1]
                     logger.debug(f"    Setting current lmp_label to '{state['c_lmp_label']}'")
                 elif re.match(rs.jump, line):
                     logger.debug(f"Line {i}, found jump")
-                    jmp_label = line.split('#')[0].strip().split()[-1]
-                    if state['c_lmp_label'] == jmp_label:
-                        logger.debug(f"    Jump and currenl lmp_label are equal '{jmp_label}'")
-                        if re.match(rs.next, prev_line):
+                    if re.match(rs.next, prev_line):
+                        jmp_label = line.split('#')[0].strip().split()[-1]
+                        if state['c_lmp_label'] == jmp_label:
+                            logger.debug(f"    Jump and currenl lmp_label are equal '{jmp_label}'")
                             var = prev_line.split("#")[0].strip().split()[-1]
                             cnt = state[cs.sf.variables][var]
                             logger.debug(f"    Loop with label {state['c_lmp_label']} will run {cnt} times")
@@ -107,29 +106,38 @@ def process_file(file: Path, state: Dict, logger: logging.Logger) -> Dict:
                             logger.debug("    Setting current lmp label to None")
                             state['c_lmp_label'] = None
                         else:
-                            logger.error("Line before jump does not contain next command")
-                            raise RuntimeError("Line before jump does not contain next command")
+                            logger.error(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
+                            raise RuntimeError(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
                     else:
-                        logger.error(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
-                        raise RuntimeError(f"Current lmp_label is '{state['c_lmp_label']}', but jump is '{jmp_label}'")
+                        logger.error("Line before jump does not contain next command")
+                        raise RuntimeError("Line before jump does not contain next command")
+                elif re.match(rs.ift, line):
+                    logger.debug(f"Line {i}, found conditional with one outcome")
+                    state = parsers.ift(state, line, logger.getChild('ift'))
                 elif re.match(rs.set_restart, line):
                     logger.debug(f"Line {i}, found restart")
                     state = parsers.restart(state, line, logger.getChild('restart'))
                 else:
                     logger.debug(f"Line {i}, nothing was found")
                 prev_line = line
-    except Exception as e:
-        logger.critical(str(e))
+    except Exception:
+        logger.exception("An exception ocurred while parsing")
         logger.critical("Dumping variables dict:")
         logger.critical(json.dumps(state[cs.sf.variables], indent=4))
         raise
     logger.info("Done parsing")
-    vt = 0
-    labels_list = list(state[cs.sf.run_labels].keys())
+    vt: int = 0
     for label in state[cs.sf.run_labels]:
-        state[cs.sf.run_labels][label] = {cs.sf.begin_step: vt, cs.sf.end_step: sum(state[cs.sf.run_labels][label]) + vt, cs.sf.runs: 0}  # type: ignore
-        vt = state[cs.sf.run_labels][label][cs.sf.end_step]  # type: ignore
-    state[cs.sf.run_labels]["START"]["0"] = {cs.sf.dump_file: "START0"}  # type: ignore
+        if None in state[cs.sf.run_labels][label]:
+            state[cs.sf.run_labels][label] = {cs.sf.begin_step: round(vt), cs.sf.end_step: None, cs.sf.runs: 0}
+            vt = 0
+        else:
+            tg: int = round(sum(state[cs.sf.run_labels][label]) + vt)
+            state[cs.sf.run_labels][label] = {cs.sf.begin_step: vt, cs.sf.end_step: tg, cs.sf.runs: 0}
+            vt = tg
+
+    state[cs.sf.run_labels]["START"]["0"] = {cs.sf.dump_file: "START0"}
+    labels_list = list(state[cs.sf.run_labels].keys())
     state[cs.sf.labels_list] = labels_list
     # del state["runcsa"]
     del state['clabel']
@@ -156,6 +164,9 @@ def check_required_fs(cwd: Path):
     if (n := (cwd / cs.folders.special_restarts)).exists():
         raise FileExistsError(f"Directory {n.as_posix()} already exists")
     n.mkdir()
+    if (n := (cwd / cs.folders.signals)).exists():
+        raise FileExistsError(f"Directory {n.as_posix()} already exists")
+    n.mkdir()
     return True
 
 
@@ -170,7 +181,7 @@ def init(cwd: Path, args: argparse.Namespace, logger: logging.Logger):
 
     state = {cs.sf.state: states.fully_initialized, cs.sf.tag: round(time.time())}
     if args.fname is not None:
-        pfile = (cwd / cs.files.params) if args.fname is None else args.fname
+        pfile: Path = cwd / args.fname
         logger.info(f"Trying to get params from file: {pfile.as_posix()}")
         with pfile.open('r') as f:
             variables = json.load(f)

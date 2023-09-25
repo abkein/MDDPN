@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 22:52:46
+# Last modified: 25-09-2023 16:04:31
 
 import json
 import logging
@@ -72,7 +72,10 @@ def basic(conf: Dict[str, Any], logger: logging.Logger) -> None:
     if 'params' in conf:
         cs.sp.params = conf['params']
 
-    if 'post_processor' in conf:
+    if 'post_processing' in conf:
+        cs.sp.allow_post_process = conf['post_processing']
+
+    if 'post_processor' in conf and cs.sp.allow_post_process:
         if not Path(conf['post_processor']).resolve().exists():
             logger.error(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
             raise FileNotFoundError(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
@@ -80,9 +83,6 @@ def basic(conf: Dict[str, Any], logger: logging.Logger) -> None:
             logger.error("Specified post processor path must be a package, i.e. specified path must be a directory")
             raise FileNotFoundError("Specified post processor path must be a package, i.e. specified path must be a directory")
         cs.sp.post_processor = conf['post_processor']
-
-    if 'post_processing' in conf:
-        cs.sp.allow_post_process = conf['post_processing']
 
     if 'test_run' in conf:
         cs.sp.run_tests = conf['test_run']

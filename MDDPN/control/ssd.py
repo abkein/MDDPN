@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-09-2023 22:56:59
+# Last modified: 25-09-2023 14:36:23
 
 import sys
 import logging
@@ -59,9 +59,8 @@ def main_main(cwd: Path, args: argparse.Namespace):
                     else:
                         logger.critical(f"Unknown '{args.command}' command received")
                         raise RuntimeError(f"There is no such command as {args.command}")
-    except Exception as e:
-        logger.critical("Uncaught exception")
-        logger.critical(str(e))
+    except Exception:
+        logger.exception("Uncaught exception")
         raise
     return 0
 

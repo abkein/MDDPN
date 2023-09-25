@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 20-09-2023 03:54:24
+# Last modified: 25-09-2023 15:08:24
 
 variable_equal_numeric = r"^\s*variable\s+[a-zA-Z_\d]+\s+equal\s+\d+[\.\/]?\d+\s*"
 variable_equal_const = r"^\s*variable\s+[a-zA-Z_\d]+\s+equal\s+(\d+|\$\{.*?\})\s*#!const\s*$"
@@ -15,7 +15,7 @@ variable_equal = r"^\s*variable\s+[a-zA-Z_\d]+\s+equal\s+.*$"
 variable_loop = r"^\s*variable\s+[a-zA-Z_\d]+\s+loop\s+.*$"
 
 run = r"^\s*run\s+.*$"
-
+ift = r"^\s*if\s+\".*?\"\s+then\s+.*$"
 set_timestep = r"^\s*timestep\s+.*$"
 
 set_restart = r"^\s*restart\s+.*$"
@@ -29,6 +29,7 @@ set_dump = r"^\s*dump\s+[a-zA-Z_]+\s+[a-zA-Z_]+\s+[a-zA-Z_]+\/?[a-zA-Z_]+\s+(\d+
 
 lmp_label = r"^\s*label\s+[a-zA-Z_]+\s*$"
 jump = r"^\s*jump\s+SELF\s+[a-zA-Z_]+\s*$"
+jump_inc = r"jump\s+SELF\s+[a-zA-Z_]+$"
 next = r"^\s*next\s+[a-zA-Z_]+\s*$"
 label_declaration = r"^\s*#\s+label:\s[a-zA-Z]+\s*"
 

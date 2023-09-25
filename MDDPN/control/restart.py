@@ -6,12 +6,12 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 20-09-2023 09:05:20
+# Last modified: 25-09-2023 19:44:32
 
 import re
 import shutil
 import logging
-from typing import Dict
+from typing import Dict, Any
 from pathlib import Path
 from argparse import Namespace as argNamespace
 
@@ -131,12 +131,37 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
         rest_cnt += 1
         state[cs.sf.restart] = rest_cnt
     current_label = ""
-    rlabels = state[cs.sf.run_labels]
-    for label in rlabels:
+    rlabels: Dict[str, Any] = state[cs.sf.run_labels]
+    for label in rlabels.keys():
         if last_timestep > rlabels[label][cs.sf.begin_step]:
-            if last_timestep < rlabels[label][cs.sf.end_step] - 1:
-                current_label = label
-                break
+            if rlabels[label][cs.sf.end_step] is None:
+                logger.debug(f"End step of label '{label}' is undefined")
+                nts = (cwd / cs.folders.signals / f"{label}.signal")
+                if not nts.exists():
+                    logger.debug("Signal file for label does not exists, assuming label was not continued")
+                    current_label = label
+                    break
+                else:
+                    logger.debug("Found signal file for label, assuming label was continued")
+                    with nts.open('r') as fp:
+                        rrt = fp.readline().split("#")[0].strip()
+                    if re.match(r"\d+", rrt):
+                        lls = int(rrt)
+                        state[cs.sf.run_labels][label][cs.sf.end_step] = lls
+                        flg = False
+                        for ml_label in rlabels.keys():
+                            if not flg:
+                                flg = ml_label == label
+                            else:
+                                state[cs.sf.run_labels][ml_label][cs.sf.begin_step] += lls
+                                if state[cs.sf.run_labels][ml_label][cs.sf.end_step] is not None:
+                                    state[cs.sf.run_labels][ml_label][cs.sf.end_step] += lls
+                    else:
+                        logger.error("Signal file does not contain readable timestep")
+            else:
+                if last_timestep < rlabels[label][cs.sf.end_step] - 1:
+                    current_label = label
+                    break
     logger.info(f"Current label: '{current_label}'")
     fl = False
     for label_c in reversed(state[cs.sf.labels_list]):
@@ -150,10 +175,12 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
         elif label_c == current_label:
             fl = True
 
-    if last_timestep >= max_step(state) - 1:
-        state[cs.sf.state] = states.comleted
-        logger.info("End was reached, exiting...")
-        return state
+    sldk = [state[cs.sf.run_labels][lbl][cs.sf.end_step] for lbl in state[cs.sf.run_labels]]
+    if None not in sldk:
+        if last_timestep >= max(sldk) - state[cs.sf.restart_every]:
+            state[cs.sf.state] = states.comleted
+            logger.info("End was reached, exiting...")
+            return state
 
     logger.info("Generating restart file")
     num = int(state[cs.sf.run_labels][current_label][cs.sf.runs])
