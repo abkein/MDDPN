@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-09-2023 23:06:24
+# Last modified: 25-09-2023 20:45:06
 
 import re
 from pathlib import Path
@@ -18,7 +18,8 @@ from .config import configure
 from . import constants as cs
 
 
-def run(cwd: Path, logger: Logger, conf: config[str, Any], opt: Union[int, None] = None, add_conf: Union[Dict, None] = None) -> int:
+# def run(cwd: Path, logger: Logger, conf: config[str, Any], opt: Union[int, None] = None, add_conf: Union[Dict, None] = None) -> int:
+def run(cwd: Path, logger: Logger, conf: config, opt: Union[int, None] = None, add_conf: Union[Dict, None] = None) -> int:
     logger.debug("Preparing...")
     if add_conf is not None:
         for k, v in add_conf.items():
