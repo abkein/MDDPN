@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 19:44:32
+# Last modified: 02-10-2023 21:31:17
 
 import re
 import shutil
@@ -147,6 +147,10 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
                         rrt = fp.readline().split("#")[0].strip()
                     if re.match(r"\d+", rrt):
                         lls = int(rrt)
+                        if lls < 1000:
+                            logger.debug(f"Signal step is less than 1000 and is {lls} — so small, continue with current label")
+                            current_label = label
+                            break
                         state[cs.sf.run_labels][label][cs.sf.end_step] = lls
                         flg = False
                         for ml_label in rlabels.keys():
