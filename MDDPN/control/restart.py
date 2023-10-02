@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-10-2023 21:31:17
+# Last modified: 02-10-2023 21:40:14
 
 import re
 import shutil
@@ -150,6 +150,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
                         if lls < 1000:
                             logger.debug(f"Signal step is less than 1000 and is {lls} — so small, continue with current label")
                             current_label = label
+                            nts.unlink()
                             break
                         state[cs.sf.run_labels][label][cs.sf.end_step] = lls
                         flg = False
