@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-09-2023 23:07:03
+# Last modified: 02-11-2023 15:37:05
 
 import logging
 import argparse
@@ -66,6 +66,7 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     cs.sp.sconf_post[sbatch.cs.fields.executable] = executable
     cs.sp.sconf_post[sbatch.cs.fields.args] = argsuments
     job_id = sbatch.sbatch.run(cwd, logger.getChild("submitter"), config(cs.sp.sconf_post))
-    state[cs.sf.state] = states.post_process_done
+    if not args.ongoing:
+        state[cs.sf.state] = states.post_process_done
     state[cs.sf.post_process_id] = job_id
     return state
