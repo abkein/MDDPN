@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-11-2023 15:37:05
+# Last modified: 03-11-2023 19:54:08
 
 import logging
 import argparse
@@ -50,7 +50,8 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     sys.modules["post_processor"] = processor
     spec.loader.exec_module(processor)
     logger.info("Import successful, calling")
-    state[cs.sf.state] = states.post_processor_called
+    if not args.ongoing:
+        state[cs.sf.state] = states.post_processor_called
     executable: Union[str, None]
     argsuments: Union[str, None]
     try:
