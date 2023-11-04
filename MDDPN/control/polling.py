@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-09-2023 20:25:46
+# Last modified: 04-11-2023 18:02:42
 
 import re
 import sys
@@ -162,7 +162,8 @@ def loop(cwd: Path, jobid: int, every: int, logger: logging.Logger, do_restart: 
         # lockfile.unlink()
         raise
 
-    lockfile.unlink()
+    if not do_restart:
+        lockfile.unlink()
     return state
 
 
