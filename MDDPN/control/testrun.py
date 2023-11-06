@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 24-09-2023 22:59:18
+# Last modified: 06-11-2023 16:28:26
 
 import time
 import shutil
@@ -20,7 +20,7 @@ from . import constants as cs
 from ..utils import config
 
 
-ignored_folders = [cs.folders.dumps, cs.folders.special_restarts]
+ignored_folders = [cs.folders.dumps, cs.folders.special_restarts, cs.folders.post_process]
 
 
 def gen_ignore(cwd: Path) -> Callable[[str, List[str]], List[str]]:
@@ -28,6 +28,7 @@ def gen_ignore(cwd: Path) -> Callable[[str, List[str]], List[str]]:
         if Path(pwd) == cwd:
             return ignored_folders
         return ignored_folders
+
     return ign
 
 
@@ -41,12 +42,14 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
         (new_cwd / el).mkdir(exist_ok=True)
 
     cs.sp.sconf_test[sbatch.cs.fields.executable] = cs.execs.lammps
-    cs.sp.sconf_test[sbatch.cs.fields.args] = "-v test 0 -echo both -log '{jd}/log.lammps' -in " + new_in_file.as_posix()
+    cs.sp.sconf_test[sbatch.cs.fields.args] = (
+        "-v test 0 -echo both -log '{jd}/log.lammps' -in " + new_in_file.as_posix()
+    )
     logger.info("Submitting test run and waiting it to complete")
     jobid = sbatch.sbatch.run(new_cwd, logger.getChild("submitter"), config(cs.sp.sconf_test))
     logger.info(f"Submitted test jod id: {jobid}")
     try:
-        res_state = polling.loop(new_cwd, jobid, 20, logger.getChild('poll'), False)
+        res_state = polling.loop(new_cwd, jobid, 20, logger.getChild("poll"), False)
     except Exception as e:
         logger.error("Exception during polling test run")
         logger.exception(e)

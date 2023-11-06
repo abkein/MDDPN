@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 16:00:51
+# Last modified: 06-11-2023 16:28:21
 
 in_templates: str = "../in.templates/nonisotermal/"  # this can be overriden at runtime
 special_restarts: str = "special_restarts"
@@ -17,6 +17,7 @@ in_file: str = "in_files"
 log: str = "logs"
 pass_log: str = "pass"
 signals: str = "signals"
+post_process: str = "post"
 
 # def_lin_tmp: str = "/tmp"
 tmp_dir_basename: str = "MDDPN"
