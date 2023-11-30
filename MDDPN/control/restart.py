@@ -92,7 +92,7 @@ def restart(cwd: Path, state: Dict, args: argNamespace, logger: logging.Logger) 
         raise Exception(f"Lockfile exists: {lockfile.as_posix()}")
     if RestartMode(state[cs.sf.restart_mode]) == RestartMode.multiple:
         if args.step is None:
-            last_timestep = find_last(cwd / cs.folders.restarts, state[cs.sf.restart_files])
+            last_timestep: int = find_last(cwd / cs.folders.restarts, state[cs.sf.restart_files])
             if last_timestep < 0:
                 logger.critical(f"Cannot find any restart files in folder {(cwd / cs.folders.restarts).as_posix()}")
                 raise RuntimeError(f"Cannot find any restart files in folder {(cwd / cs.folders.restarts).as_posix()}")
