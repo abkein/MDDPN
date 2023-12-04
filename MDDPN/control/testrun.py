@@ -57,7 +57,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
     logger.debug(f"Polling complete, result state: '{str(res_state)}'")
     if res_state == polling.SStates.COMPLETED:
         logger.info("State is OK, cleaning temporary dir")
-        shutil.rmtree(new_cwd)
+        # shutil.rmtree(new_cwd)
         return True
     else:
         print("Error on test run")
