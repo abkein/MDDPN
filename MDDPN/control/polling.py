@@ -60,34 +60,88 @@ class SStates(str, Enum):
 
 
 # [SStates.BOOT_FAIL, SStates.CANCELLED, SStates.COMPLETED, SStates.CONFIGURING, SStates.COMPLETING, SStates.DEADLINE, SStates.FAILED, SStates.NODE_FAIL, SStates.OUT_OF_MEMORY, SStates.PENDING, SStates.PREEMPTED, SStates.RUNNING,
-    # SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
+# SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
 # "BOOT_FAIL", "CANCELLED", "COMPLETED", "CONFIGURING", "COMPLETING", "DEADLINE", "FAILED", "NODE_FAIL", "OUT_OF_MEMORY", "PENDING", "PREEMPTED", "RUNNING", "RESV_DEL_HOLD", "REQUEUE_FED", "REQUEUE_HOLD", "REQUEUED", "RESIZING", "REVOKED", "SIGNALING", "SPECIAL_EXIT", "STAGE_OUT", "STOPPED", "SUSPENDED", "TIMEOUT"
 
-all_states = [SStates.BOOT_FAIL, SStates.CANCELLED, SStates.COMPLETED, SStates.CONFIGURING, SStates.COMPLETING, SStates.DEADLINE, SStates.FAILED, SStates.NODE_FAIL, SStates.OUT_OF_MEMORY, SStates.PENDING, SStates.PREEMPTED, SStates.RUNNING,
-              SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
+all_states = [
+    SStates.BOOT_FAIL,
+    SStates.CANCELLED,
+    SStates.COMPLETED,
+    SStates.CONFIGURING,
+    SStates.COMPLETING,
+    SStates.DEADLINE,
+    SStates.FAILED,
+    SStates.NODE_FAIL,
+    SStates.OUT_OF_MEMORY,
+    SStates.PENDING,
+    SStates.PREEMPTED,
+    SStates.RUNNING,
+    SStates.RESV_DEL_HOLD,
+    SStates.REQUEUE_FED,
+    SStates.REQUEUE_HOLD,
+    SStates.REQUEUED,
+    SStates.RESIZING,
+    SStates.REVOKED,
+    SStates.SIGNALING,
+    SStates.SPECIAL_EXIT,
+    SStates.STAGE_OUT,
+    SStates.STOPPED,
+    SStates.SUSPENDED,
+    SStates.TIMEOUT,
+]
 
-states_str = ["BOOT_FAIL", "CANCELLED", "COMPLETED", "CONFIGURING", "COMPLETING", "DEADLINE", "FAILED", "NODE_FAIL", "OUT_OF_MEMORY", "PENDING", "PREEMPTED", "RUNNING",
-              "RESV_DEL_HOLD", "REQUEUE_FED", "REQUEUE_HOLD", "REQUEUED", "RESIZING", "REVOKED", "SIGNALING", "SPECIAL_EXIT", "STAGE_OUT", "STOPPED", "SUSPENDED", "TIMEOUT"]
+states_str = [
+    "BOOT_FAIL",
+    "CANCELLED",
+    "COMPLETED",
+    "CONFIGURING",
+    "COMPLETING",
+    "DEADLINE",
+    "FAILED",
+    "NODE_FAIL",
+    "OUT_OF_MEMORY",
+    "PENDING",
+    "PREEMPTED",
+    "RUNNING",
+    "RESV_DEL_HOLD",
+    "REQUEUE_FED",
+    "REQUEUE_HOLD",
+    "REQUEUED",
+    "RESIZING",
+    "REVOKED",
+    "SIGNALING",
+    "SPECIAL_EXIT",
+    "STAGE_OUT",
+    "STOPPED",
+    "SUSPENDED",
+    "TIMEOUT",
+]
 
-failure_states = [SStates.BOOT_FAIL, SStates.DEADLINE,
-                  SStates.NODE_FAIL, SStates.OUT_OF_MEMORY, SStates.STOPPED, SStates.CANCELLED, SStates.FAILED]
-states_to_restart = [SStates.COMPLETED, SStates.TIMEOUT]
+failure_states = [
+    SStates.BOOT_FAIL,
+    SStates.DEADLINE,
+    SStates.NODE_FAIL,
+    SStates.OUT_OF_MEMORY,
+    SStates.STOPPED,
+    SStates.FAILED,
+]
+states_to_restart = [SStates.COMPLETED, SStates.TIMEOUT, SStates.CANCELLED]
 
 # unknown_states = [SStates.CONFIGURING, SStates.COMPLETING, SStates.PENDING, SStates.PREEMPTED,  SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
 
 
 def perform_restart(cwd: Path, logger: logging.Logger) -> str:
     cmd = f"{cs.execs.MDDPN} --debug restart"
-    bout = wexec(cmd, logger.getChild('MDDPN'))
+    bout = wexec(cmd, logger.getChild("MDDPN"))
     return bout
 
 
 def perform_check(jobid: int, logger: logging.Logger) -> SStates:
     cmd = f"{cs.execs.sacct} -j {jobid} -n -p -o jobid,state"
-    bout = wexec(cmd, logger.getChild('sacct'))
+    bout = wexec(cmd, logger.getChild("sacct"))
     for line in bout.splitlines():
         if re.match(r"^\d+\|[a-zA-Z]+\|", line):
-            return SStates(line.split('|')[1])
+            return SStates(line.split("|")[1])
     return SStates.UNKNOWN_STATE
 
 
@@ -168,12 +222,12 @@ def loop(cwd: Path, jobid: int, every: int, logger: logging.Logger, do_restart: 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(prog='polling.py')
-    parser.add_argument('--debug', action='store_true', help='Debug, prints only parsed arguments')
-    parser.add_argument('--jobid', action='store', type=int, help='Slurm job ID')
-    parser.add_argument('--tag', action='store', type=int, help='Project tag')
-    parser.add_argument('--every', action='store', type=int, help='Perform poll every N-minutes')
-    parser.add_argument('cwd', action='store', type=str, help='Current working directory')
+    parser = argparse.ArgumentParser(prog="polling.py")
+    parser.add_argument("--debug", action="store_true", help="Debug, prints only parsed arguments")
+    parser.add_argument("--jobid", action="store", type=int, help="Slurm job ID")
+    parser.add_argument("--tag", action="store", type=int, help="Project tag")
+    parser.add_argument("--every", action="store", type=int, help="Perform poll every N-minutes")
+    parser.add_argument("cwd", action="store", type=str, help="Current working directory")
     args = parser.parse_args()
     cwd = Path.cwd()
 
@@ -185,11 +239,11 @@ def main() -> int:
     handler = logging.FileHandler(logfile)
     handler.setFormatter(cs.sp.formatter)
 
-    logger = logging.getLogger('polling')
+    logger = logging.getLogger("polling")
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
     logger.addHandler(handler)
 
-    loop(cwd, jobid, args.every*60, logger)
+    loop(cwd, jobid, args.every * 60, logger)
 
     return 0
 
