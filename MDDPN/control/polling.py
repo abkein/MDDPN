@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 04-11-2023 18:02:42
+# Last modified: 05-12-2023 17:07:41
 
 import re
 import sys
@@ -124,8 +124,12 @@ failure_states = [
     SStates.OUT_OF_MEMORY,
     SStates.STOPPED,
     SStates.FAILED,
+    SStates.CANCELLED,
 ]
-states_to_restart = [SStates.COMPLETED, SStates.TIMEOUT, SStates.CANCELLED]
+states_to_restart = [
+    SStates.COMPLETED,
+    SStates.TIMEOUT,
+]
 
 # unknown_states = [SStates.CONFIGURING, SStates.COMPLETING, SStates.PENDING, SStates.PREEMPTED,  SStates.RESV_DEL_HOLD, SStates.REQUEUE_FED, SStates.REQUEUE_HOLD, SStates.REQUEUED, SStates.RESIZING, SStates.REVOKED, SStates.SIGNALING, SStates.SPECIAL_EXIT, SStates.STAGE_OUT, SStates.STOPPED, SStates.SUSPENDED, SStates.TIMEOUT]
 
