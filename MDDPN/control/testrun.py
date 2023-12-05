@@ -6,8 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 04-12-2023 17:50:21
+# Last modified: 05-12-2023 16:34:02
 
+import os
 import time
 import shutil
 import logging
@@ -45,6 +46,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
     cs.sp.sconf_test[sbatch.cs.fields.args] = (
         "-v test 0 -echo both -log '{jd}/log.lammps' -in " + new_in_file.as_posix()
     )
+    os.chdir(new_cwd)
     logger.info("Submitting test run and waiting it to complete")
     jobid = sbatch.sbatch.run(new_cwd, logger.getChild("submitter"), config(cs.sp.sconf_test))
     logger.info(f"Submitted test jod id: {jobid}")
@@ -54,6 +56,7 @@ def test_run(cwd: Path, in_file: Path, logger: logging.Logger) -> bool:
         logger.error("Exception during polling test run")
         logger.exception(e)
         raise
+    os.chdir(cwd)
     logger.debug(f"Polling complete, result state: '{str(res_state)}'")
     if res_state == polling.SStates.COMPLETED:
         logger.info("State is OK, cleaning temporary dir")
