@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 04-12-2023 17:50:15
+# Last modified: 13-12-2023 19:38:15
 
 import sys
 import logging
@@ -107,6 +107,7 @@ def main():
 
     parser_end = sub_parsers.add_parser("end", help="Post-processing")
     parser_end.add_argument("--ongoing", action="store_true", help="Do post processing while simulation is in progress")
+    parser_end.add_argument("--anyway", action="store_true", help="Proceed anyway despite of errors in state file")
     parser_end.add_argument("--params", action="store", type=str, default=None, help="Post-processing parameters")
     # parser_end.add_argument('--version', action='store', type=int, default=1, help='Post-processing parameters')
     # parser_end.add_argument('--part', action='store', type=str, default=None, help='Set partition (defaulting to small)')
