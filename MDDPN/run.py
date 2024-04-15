@@ -13,7 +13,7 @@ from typing import Dict
 from pathlib import Path
 from argparse import Namespace as argNamespace
 from MPMU import config
-import pysbatch as sbatch
+import pysbatch_ng as sbatch
 
 from . import constants as cs
 from .execution import run_polling

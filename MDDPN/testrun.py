@@ -15,7 +15,7 @@ import logging
 from typing import List, Callable
 from pathlib import Path
 from MPMU import config
-import pysbatch as sbatch
+import pysbatch_ng as sbatch
 
 from . import polling
 from . import constants as cs

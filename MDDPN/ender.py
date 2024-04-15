@@ -14,7 +14,7 @@ import argparse
 from pathlib import Path
 from typing import Dict, Any, Union
 from MPMU import config
-import pysbatch as sbatch
+import pysbatch_ng as sbatch
 
 from .utils import states
 from . import constants as cs
