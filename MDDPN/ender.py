@@ -6,20 +6,57 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 13-12-2023 19:38:52
+# Last modified: 15-04-2024 23:31:23
 
+import json
 import logging
 import argparse
 from pathlib import Path
 from typing import Dict, Any, Union
+from MPMU import config
+import pysbatch as sbatch
 
-from .. import sbatch
 from .utils import states
 from . import constants as cs
-from ..utils import config
+
+
+def state_runs_check(state: dict, logger: logging.Logger) -> bool:
+    fl = True
+    rlabels: dict = state[cs.sf.run_labels]
+    for label in rlabels:
+        rc = 0
+        while str(rc) in rlabels[label]:
+            rc += 1
+        prc: int = rlabels[label][cs.sf.runs]
+        if prc != rc:
+            fl = False
+            logger.warning(f"Label {label} runs: present={prc}, real={rc}")
+    return fl
+
+
+def state_validate(cwd: Path, state: dict, logger: logging.Logger) -> bool:
+    fl = True
+    rlabels: dict = state[cs.sf.run_labels]
+    for label in rlabels:
+        for i in range(int(rlabels[label][cs.sf.runs])):
+            logger.debug(f"Checking {label}:{i}:{cs.sf.dump_file}")
+            try:
+                dump_file: Path = cwd / cs.folders.dumps / rlabels[label][str(i)][cs.sf.dump_file]
+            except KeyError:
+                logging.exception(json.dumps(rlabels, indent=4))
+                raise
+            if not dump_file.exists():
+                fl = False
+                logger.warning(f"Dump file {dump_file.as_posix()} not exists")
+    return fl
 
 
 def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
+    if not args.anyway:
+        if not (state_runs_check(state, logger.getChild('runs_check')) and state_validate(cwd, state, logger.getChild('validate'))):
+            logger.error("Stopped, state is inconsistent")
+            raise RuntimeError("Stopped, state is inconsistent")
+
     logger.info(f"Trying to import {cs.sp.post_processor}")
     import importlib.util
     import sys
@@ -57,8 +94,9 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     executable: Union[str, None]
     argsuments: Union[str, None]
     try:
+        nworkers: int = cs.sp.sconf_post[sbatch.cs.fields.nnodes]*cs.sp.sconf_post[sbatch.cs.fields.ntpn]
         executable, argsuments = processor.pp.end(
-            cwd, state.copy(), args, logger.getChild("post_processing.end"), args.anyway
+            cwd, state.copy(), args, logger.getChild("post_processing.end"), nworkers
         )
     except Exception as e:
         logger.error("Post processor raised an exception")

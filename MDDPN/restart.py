@@ -14,9 +14,9 @@ import logging
 from typing import Dict, Any
 from pathlib import Path
 from argparse import Namespace as argNamespace
+from MPMU import wexec
 
 from . import parsers
-from ..utils import wexec
 from . import regexs as rs
 from .run import submit_run
 from . import constants as cs

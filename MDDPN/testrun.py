@@ -14,11 +14,11 @@ import shutil
 import logging
 from typing import List, Callable
 from pathlib import Path
+from MPMU import config
+import pysbatch as sbatch
 
 from . import polling
-from .. import sbatch
 from . import constants as cs
-from ..utils import config
 
 
 ignored_folders = [cs.folders.dumps, cs.folders.special_restarts, cs.folders.post_process]

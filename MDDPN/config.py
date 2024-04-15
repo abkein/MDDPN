@@ -12,9 +12,9 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, Any
+from MPMU import is_exe
+import pysbatch as sbatch
 
-from .. import sbatch
-from ..utils import is_exe
 from . import constants as cs
 
 

@@ -12,13 +12,13 @@ import logging
 from typing import Dict
 from pathlib import Path
 from argparse import Namespace as argNamespace
+from MPMU import config
+import pysbatch as sbatch
 
-from .. import sbatch
 from . import constants as cs
 from .execution import run_polling
 from .utils import states, LogicError
 from .testrun import test_run
-from ..utils import config
 
 
 def submit_run(cwd: Path, infile: Path, logger: logging.Logger, opt: int) -> int:

@@ -6,149 +6,122 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 20:42:19
+# Last modified: 25-09-2023 20:36:27
 
-import os
-import shlex
+import json
 import logging
-import subprocess as sb
-from typing import Dict, List, TypeVar
-import string
+import argparse
+from enum import Enum
+from pathlib import Path
+from typing import Generator, Dict, Any
+from contextlib import contextmanager
+
+from . import constants as cs
 
 
-KT = TypeVar('KT')
-VT = TypeVar('VT')
+class states(str, Enum):
+    initialized = "initialized"
+    fully_initialized = "fully_initialized"
+    started = "started"
+    restarted = "restarted"
+    comleted = "comleted"
+    post_processor_called = "post_processor_called"
+    post_process_done = "post_process_done"
 
 
-def wexec(cmd: str, logger: logging.Logger) -> str:
-    logger.debug(f"Calling '{cmd}'")
-    cmds = shlex.split(cmd)
-    proc = sb.run(cmds, capture_output=True)
-    bout = proc.stdout.decode()
-    berr = proc.stderr.decode()
-    if proc.returncode != 0:
-        logger.error("Process returned non-zero exitcode")
-        logger.error("### OUTPUT ###")
-        logger.error("bout")
-        logger.error("### ERROR ###")
-        logger.error(berr)
-        logger.error("")
-        raise RuntimeError("Process returned non-zero exitcode")
-    return bout
+class RestartMode(str, Enum):
+    none = "None"
+    one = 'one'
+    two = 'two'
+    multiple = 'multiple'
 
 
-def is_exe(fpath: str, logger: logging.Logger, exit: bool = False):
-    logger.debug(f"Checking: '{fpath}'")
-    if not (os.path.isfile(fpath) and os.access(fpath, os.X_OK)):
-        logger.debug("This is not standard file")
-        if not exit:
-            logger.debug("Resolving via 'which'")
-            cmd = f"which {fpath}"
-            cmds = shlex.split(cmd)
-            proc = sb.run(cmds, capture_output=True)
-            bout = proc.stdout.decode()
-            # berr = proc.stderr.decode()
-            if proc.returncode != 0:
-                logger.debug('Process returned nonzero returncode')
-                return False
-            else:
-                return is_exe(bout.strip(), logger.getChild('2nd'), exit=True)
-        else:
-            return False
+class Part(str, Enum):
+    none = "None"
+    start = "start"
+    save = "save"
+    run = "run"
+
+
+class LogicError(Exception):
+    pass
+
+
+def com_set(cwd: Path, args: argparse.Namespace) -> Dict[str, Any]:
+    file = cwd / args.file
+    if not file.exists():
+        raise FileNotFoundError(f"There is no file {file.as_posix()}")
+    with file.open('r') as f:
+        fp = json.load(f)
+    fp[args.variable] = args.value
+    with file.open('w') as f:
+        json.dump(fp, f)
+    return fp
+
+
+@contextmanager
+def load_state(cwd: Path) -> Generator[Dict[str, Any], Dict[str, Any], None]:
+    stf = cwd / cs.files.state
+    if not stf.exists():
+        raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
+    with stf.open('r') as f:
+        state: Dict[str, Any] = json.load(f)
+    try:
+        yield state
+    finally:
+        with stf.open('w') as f:
+            json.dump(state, f, indent=4)
+
+
+def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Logger:
+    folder = cwd / cs.folders.log
+    folder.mkdir(exist_ok=True, parents=True)
+    logfile = folder / cs.files.logfile
+    folder = folder / cs.folders.pass_log
+    folder.mkdir(exist_ok=True, parents=True)
+
+    dir_list = list(folder.iterdir())
+    if len(dir_list) == 0:
+        last = 0
     else:
-        return True
+        last = max([int(file.relative_to(folder).as_posix()[len(cs.files.pass_log_prefix):-len(cs.files.pass_log_suffix)]) for file in dir_list])
+    logfile_pass = folder / (cs.files.pass_log_prefix + str(last + 1) + cs.files.pass_log_suffix)
+
+    handler = logging.FileHandler(logfile)
+    handler.setFormatter(cs.sp.formatter)
+    handler_pass = logging.FileHandler(logfile_pass)
+    handler_pass.setFormatter(cs.sp.formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+    logger.addHandler(handler_pass)
+
+    return logger
 
 
-# class config(dict[KT, VT]):
-#     def __init__(self, *args, **kwargs) -> None:
-#         super().__init__(*args, **kwargs)
-#         self.placeholders: Dict[str, List[KT]] = {}
-#         for k, v in super().items():
-#             self.add_ph(k, v)
+def gsr(label: str, obj, cnt: int):
+    if isinstance(obj, dict):
+        if label == list(obj.keys())[0]:
+            return obj[label]*cnt
 
-#     def add_ph(self, __key: KT, __value: VT) -> None:
-#         if isinstance(__value, str):
-#             phs = [tup[1] for tup in string.Formatter().parse(__value) if tup[1] is not None]
-#             if len(phs) != 0:
-#                 for ph in phs:
-#                     if len(ph) != 0:
-#                         if ph in self.placeholders:
-#                             self.placeholders[ph] += [__key]
-#                         else:
-#                             self.placeholders[ph] = [__key]
-#                     else:
-#                         pass
-
-#     def __setitem__(self, __key: KT, __value: VT) -> None:
-#         self.add_ph(__key, __value)
-#         return super().__setitem__(__key, __value)
-
-#     def reconf(self, **kwargs) -> None:
-#         for ph, value in kwargs.items():
-#             for key in self.placeholders[ph]:
-#                 obj: VT = super().__getitem__(key)
-#                 if isinstance(obj, str):
-#                     obj = obj.format(**{ph: value})  # type: ignore
-#                 else:
-#                     raise Exception
-#                 super().__setitem__(key, obj)  # type: ignore
-
-#     def sreconf(self) -> None:
-#         for ph, keys in self.placeholders.items():
-#             if super().__contains__(ph):
-#                 for key in keys:
-#                     obj: VT = super().__getitem__(key)
-#                     if isinstance(obj, str):
-#                         obj = obj.format(**{ph: super().__getitem__(ph)})  # type: ignore
-#                     else:
-#                         raise Exception
-#                     super().__setitem__(key, obj)  # type: ignore
+    return obj
 
 
-class config(dict):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.placeholders: Dict[str, List] = {}
-        for k, v in super().items():
-            self.add_ph(k, v)
-
-    def add_ph(self, __key, __value) -> None:
-        if isinstance(__value, str):
-            phs = [tup[1] for tup in string.Formatter().parse(__value) if tup[1] is not None]
-            if len(phs) != 0:
-                for ph in phs:
-                    if len(ph) != 0:
-                        if ph in self.placeholders:
-                            self.placeholders[ph] += [__key]
-                        else:
-                            self.placeholders[ph] = [__key]
-                    else:
-                        pass
-
-    def __setitem__(self, __key, __value) -> None:
-        self.add_ph(__key, __value)
-        return super().__setitem__(__key, __value)
-
-    def reconf(self, **kwargs) -> None:
-        for ph, value in kwargs.items():
-            for key in self.placeholders[ph]:
-                obj = super().__getitem__(key)
-                if isinstance(obj, str):
-                    obj = obj.format(**{ph: value})  # type: ignore
-                else:
-                    raise Exception
-                super().__setitem__(key, obj)  # type: ignore
-
-    def sreconf(self) -> None:
-        for ph, keys in self.placeholders.items():
-            if super().__contains__(ph):
-                for key in keys:
-                    obj = super().__getitem__(key)
-                    if isinstance(obj, str):
-                        obj = obj.format(**{ph: super().__getitem__(ph)})  # type: ignore
-                    else:
-                        raise Exception
-                    super().__setitem__(key, obj)  # type: ignore
+def try_eval(equ: str, vars: Dict, logger: logging.Logger):
+    logger.debug(f"    Formula: '{equ}'")
+    try:
+        eval_val = eval(equ,  globals(), vars)
+    except NameError as e:
+        logger.critical(str(e))
+        logger.critical(f"Unable to evaluate '{equ}', some variables lost")
+        raise
+    except Exception as e:
+        logger.critical(str(e))
+        logger.critical(f"Unable to evaluate '{equ}', unknown error")
+        raise
+    logger.debug(f"    Evaluated value: {eval_val}")
+    return eval_val
 
 
 if __name__ == "__main__":

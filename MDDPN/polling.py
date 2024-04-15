@@ -15,8 +15,8 @@ import logging
 import argparse
 from enum import Enum
 from pathlib import Path
+from MPMU import wexec
 
-from ..utils import wexec
 from . import constants as cs
 from .utils import LogicError
 
