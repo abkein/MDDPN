@@ -22,9 +22,7 @@ classifiers = [
 ]
 
 [project.scripts]
-MDDPN = "MDDPN.control.ssd:main"
-MDpoll = "MDDPN.control.polling:main"
-
+MDDPN = "MDDPN.ssd:main"
 
 [project.urls]
 "Homepage" = "https://github.com/Architect0rr/MDDPN"

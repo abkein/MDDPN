@@ -6,160 +6,184 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 16:04:31
+# Last modified: 01-05-2024 14:19:59
 
+import toml
 import json
-import logging
 from pathlib import Path
 from typing import Dict, Any
 from MPMU import is_exe
 import pysbatch_ng as sbatch
 
 from . import constants as cs
+from .utils import logs
 
 
-def check(logger: logging.Logger) -> None:
-    if not is_exe(cs.execs.MDDPN, logger.getChild('is_exe')):
-        logger.error("MDDPN executable not found")
-        raise FileNotFoundError("MDDPN executable not found")
-    if not is_exe(cs.execs.sacct, logger.getChild('is_exe')):
-        logger.error("sacct executable not found")
-        raise FileNotFoundError("sacct executable not found")
-    if not is_exe(cs.execs.lammps, logger.getChild('is_exe')):
-        logger.error("lammps executable not found")
-        raise FileNotFoundError("lammps executable not found")
-    if not is_exe(cs.execs.sbatch, logger.getChild('is_exe')):
-        logger.error("sbatch executable not found")
-        raise FileNotFoundError("sbatch executable not found")
-    if not is_exe(cs.execs.sinfo, logger.getChild('is_exe')):
-        logger.error("sinfo executable not found")
-        raise FileNotFoundError("sinfo executable not found")
-    if not is_exe(cs.execs.MDpoll, logger.getChild('is_exe')):
-        logger.error("MDpoll executable not found")
-        raise FileNotFoundError("MDpoll executable not found")
+@logs
+def execs_check() -> bool:
+    fl = True
+    if not is_exe(cs.execs.MDDPN, cs.sp.logger.getChild('is_exe')):
+        cs.sp.logger.error("MDDPN executable not found")
+        fl = False
+        # raise FileNotFoundError("MDDPN executable not found")
+    if not is_exe(cs.execs.lammps, cs.sp.logger.getChild('is_exe')):
+        cs.sp.logger.error("lammps executable not found")
+        fl = False
+        # raise FileNotFoundError("lammps executable not found")
+    if not is_exe(cs.execs.spoll, cs.sp.logger.getChild('is_exe')):
+        cs.sp.logger.error("spoll executable not found")
+        fl = False
+        # raise FileNotFoundError("spoll executable not found")
+    return fl
 
 
-def basic(conf: Dict[str, Any], logger: logging.Logger) -> None:
-    logger.debug("Getting executables paths")
-    # print(list(conf.keys()))
-    if 'execs' in conf:
-        execs = conf['execs']
-        if 'lammps' in execs:
-            cs.execs.lammps = execs['lammps']
-        if 'MDDPN' in execs:
-            cs.execs.MDDPN = execs['MDDPN']
-        if 'sbatch' in execs:
-            cs.execs.sbatch = execs['sbatch']
-        if 'sacct' in execs:
-            cs.execs.sacct = execs['sacct']
-        if 'sinfo' in execs:
-            cs.execs.sinfo = execs['sinfo']
-        if 'MDpoll' in execs:
-            cs.execs.MDpoll = execs['MDpoll']
+@logs
+def basic(conf: Dict[str, Any]) -> bool:
+    fl = True
+    cs.sp.logger.debug("Getting executables paths")
+    if cs.cf.sect_execs in conf:
+        execs = conf[cs.cf.sect_execs]
+        if cs.cf.lammps in execs:
+            cs.execs.lammps = execs[cs.cf.lammps]
+        if cs.cf.MDDPN in execs:
+            cs.execs.MDDPN = execs[cs.cf.MDDPN]
+        if cs.cf.spoll in execs:
+            cs.execs.spoll = execs[cs.cf.spoll]
 
-    logger.debug("Getting filenames")
-    if 'files' in conf:
-        files = conf['files']
-        if 'template' in files:
-            cs.files.template = files['template']
+    cs.sp.logger.debug("Getting filenames")
+    if cs.cf.sect_files in conf:
+        files = conf[cs.cf.sect_files]
+        if cs.cf.template in files:
+            cs.files.template = files[cs.cf.template]
 
-    logger.debug("Getting folders")
-    if 'folders' in conf:
-        folders = conf['folders']
-        if 'in_templates' in folders:
-            cs.folders.in_templates = folders['in_templates']
+    cs.sp.logger.debug("Getting folders")
+    if cs.cf.sect_folders in conf:
+        folders = conf[cs.cf.sect_folders]
+        if cs.cf.in_templates in folders:
+            cs.folders.in_templates = folders[cs.cf.in_templates]
 
-    if 'params' in conf:
-        cs.sp.params = conf['params']
+    if cs.cf.sect_params in conf:
+        cs.sp.params = conf[cs.cf.sect_params]
 
-    if 'post_processing' in conf:
-        cs.sp.allow_post_process = conf['post_processing']
+    if cs.cf.sect_post in conf:
+        post_conf = conf[cs.cf.sect_post]
 
-    if 'post_processor' in conf and cs.sp.allow_post_process:
-        if not Path(conf['post_processor']).resolve().exists():
-            logger.error(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
-            raise FileNotFoundError(f"Cannot find post processor package by specified path: {Path(conf['post_processor']).as_posix()}:\nNo such directory")
-        if not Path(conf['post_processor']).resolve().is_dir():
-            logger.error("Specified post processor path must be a package, i.e. specified path must be a directory")
-            raise FileNotFoundError("Specified post processor path must be a package, i.e. specified path must be a directory")
-        cs.sp.post_processor = conf['post_processor']
+        if cs.cf.do_post in post_conf:
+            cs.sp.allow_post_process = bool(post_conf[cs.cf.do_post])
 
-    if 'test_run' in conf:
-        cs.sp.run_tests = conf['test_run']
+        if cs.cf.post_processor in post_conf and cs.sp.allow_post_process:
+            if not Path(post_conf[cs.cf.post_processor]).resolve().exists():
+                cs.sp.logger.error(f"Cannot find post processor package by specified path: {Path(post_conf[cs.cf.post_processor]).as_posix()}:\nNo such directory")
+                fl = False
+                # raise FileNotFoundError(f"Cannot find post processor package by specified path: {Path(post_conf[cs.cf.post_processor]).as_posix()}:\nNo such directory")
+            if not Path(post_conf[cs.cf.post_processor]).resolve().is_dir():
+                cs.sp.logger.error("Specified post processor path must be a package, i.e. specified path must be a directory")
+                fl = False
+                # raise FileNotFoundError("Specified post processor path must be a package, i.e. specified path must be a directory")
+            cs.sp.post_processor = post_conf[cs.cf.post_processor]
+
+    if cs.cf.do_test_run in conf:
+        cs.sp.run_tests = bool(conf[cs.cf.do_test_run])
+
+    return fl
 
 
-def gensconf(conf: Dict[str, Any], logger: logging.Logger) -> Dict[str, Any]:
-    conf[sbatch.cs.fields.execs] = {
-        'sinfo': cs.execs.sinfo,
-        'sacct': cs.execs.sacct,
-        'sbatch': cs.execs.sbatch
-    }
+def gensconf(_conf: Dict[str, Any], section: str) -> Dict[str, Any]:
+    conf = {}
+
+    if sbatch.cs.fields.execs in _conf: conf[sbatch.cs.fields.execs] = _conf[sbatch.cs.fields.execs]
+
+    for k, v in _conf[section].items():
+        conf[k] = v
+
     conf[sbatch.cs.fields.folder] = cs.folders.slurm
     return conf
 
 
-def configure(conffile: Path, logger: logging.Logger):
-    if conffile.exists():
-        logger.info("Found configuration file")
-        with conffile.open('r') as fp:
-            logger.debug("Reading configuration file")
-            conf = json.load(fp)
-
-        logger.debug("Getting basic constants")
-        basic(conf, logger.getChild('basic'))
-        logger.debug("Checking executables")
-        check(logger.getChild("execs_check"))
-
-        if 'slurm' not in conf:
-            logger.error("Cannot find 'slurm' entry in configuration file")
-            raise RuntimeError("Cannot find 'slurm' entry in configuration file")
-        if 'main' not in conf['slurm']:
-            logger.error("Cannot find 'slurm.main' entry in configuration file")
-            raise RuntimeError("Cannot find 'slurm.main' entry in configuration file")
-        logger.debug("Generating slurm configuration for main runs")
-        cs.sp.sconf_main = gensconf(conf['slurm']['main'], logger.getChild('gensconf'))
-        logger.debug("Checking slurm configuration for main runs")
-        sbatch.config.configure(cs.sp.sconf_main, logger.getChild('checksconf'), is_check=True)
-
-        if 'post' in conf['slurm']:
-            logger.debug("Generating slurm configuration for post processing")
-            cs.sp.sconf_post = gensconf(conf['slurm']['post'], logger.getChild('gensconf'))
-            logger.debug("Checking slurm configuration for main runs")
-            sbatch.config.configure(cs.sp.sconf_post, logger.getChild('checksconf'), is_check=True)
-        else:
-            logger.warning("Post processing is disabled due to non-existent 'slurm.post' entry in the configuration file")
-            cs.sp.allow_post_process = False
-
-        if 'test' in conf['slurm']:
-            logger.debug("Generating slurm configuration for testing runs")
-            cs.sp.sconf_test = gensconf(conf['slurm']['test'], logger.getChild('gensconf'))
-            logger.debug("Checking slurm configuration for testing runs")
-            sbatch.config.configure(cs.sp.sconf_test, logger.getChild('checksconf'), is_check=True)
-        else:
-            logger.warning("Test runs are disabled due to non-existent 'slurm.test' entry in the configuration file")
-            cs.sp.run_tests = False
+@logs
+def loadconf() -> Dict[str, Any]:
+    if cs.sp.args.conf:
+        conffile = Path(cs.sp.args.conf).resolve()
+        cs.sp.logger.debug(f"Searching for specified conffile: '{conffile.as_posix()}'")
     else:
-        logger.info(f"Config file {conffile.as_posix()} was not found")
-
-    return 0
-
-
-def genconf(conffile: Path, logger: logging.Logger):
+        conffile = cs.sp.cwd / (cs.files.config_toml if cs.sp.args.toml else cs.files.config_json)
+        cs.sp.logger.debug(f"Searching for conffile: '{conffile.as_posix()}'")
     if conffile.exists():
-        logger.error("Default config file exists in present directory")
+        cs.sp.logger.debug("Found configuration file")
+        with conffile.open('r') as fp:
+            cs.sp.logger.debug("Reading configuration file")
+            if cs.sp.args.toml:
+                cs.sp.logger.debug('Using toml')
+                conf = toml.load(fp)[cs.cf.sect_MDDPN]
+            else:
+                cs.sp.logger.debug('Using json')
+                conf = json.load(fp)[cs.cf.sect_MDDPN]
+            return conf
+    else:
+        cs.sp.logger.error(f"Config file {conffile.as_posix()} was not found")
+        raise FileNotFoundError(f"Config file {conffile.as_posix()} was not found")
+
+@logs
+def configure(conf: Dict[str, Any]) -> bool:
+    fl = True
+    cs.sp.logger.debug("Getting basic constants")
+    fl = fl and basic(conf)
+    cs.sp.logger.debug("Checking executables")
+    fl = fl and execs_check()
+
+    if cs.cf.sect_sbatch not in conf:
+        cs.sp.logger.error(f"Cannot find '{cs.cf.sect_sbatch}' entry in configuration file")
+        fl = False
+        # raise RuntimeError(f"Cannot find '{cs.cf.sect_sbatch}' entry in configuration file")
+    if cs.cf.sect_sbatch_main not in conf[cs.cf.sect_sbatch]:
+        cs.sp.logger.error(f"Cannot find '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_main}' entry in configuration file")
+        fl = False
+        # raise RuntimeError(f"Cannot find '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_main}' entry in configuration file")
+    cs.sp.logger.debug("Generating slurm configuration for main runs")
+    cs.sp.sconf_main = gensconf(conf[cs.cf.sect_sbatch], cs.cf.sect_sbatch_main)
+    cs.sp.logger.debug("Checking slurm configuration for main runs")
+    fl = fl and sbatch.config.configure(cs.sp.sconf_main, cs.sp.logger.getChild('sbatch.checksconf'), is_check=True)
+
+    if cs.cf.sect_sbatch_post in conf[cs.cf.sect_sbatch]:
+        cs.sp.logger.debug("Generating slurm configuration for post processing")
+        cs.sp.sconf_post = gensconf(conf[cs.cf.sect_sbatch], cs.cf.sect_sbatch_post)
+        cs.sp.logger.debug("Checking slurm configuration for main runs")
+        fl = fl and sbatch.config.configure(cs.sp.sconf_post, cs.sp.logger.getChild('checksconf'), is_check=True)
+    else:
+        cs.sp.logger.warning(f"Post processing is disabled due to non-existent '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_post}' entry in the configuration file")
+        cs.sp.allow_post_process = False
+
+    if cs.cf.sect_sbatch_test in conf[cs.cf.sect_sbatch]:
+        cs.sp.logger.debug("Generating slurm configuration for testing runs")
+        cs.sp.sconf_test = gensconf(conf[cs.cf.sect_sbatch], cs.cf.sect_sbatch_test)
+        cs.sp.logger.debug("Checking slurm configuration for testing runs")
+        fl = fl and sbatch.config.configure(cs.sp.sconf_test, cs.sp.logger.getChild('checksconf'), is_check=True)
+    else:
+        cs.sp.logger.warning(f"Test runs are disabled due to non-existent '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_test}' entry in the configuration file")
+        cs.sp.run_tests = False
+
+    if fl: cs.sp.logger.info("Configuration OK")
+    else: cs.sp.logger.error("Configuration invalid")
+    return fl
+
+
+@logs
+def genconf(conffile: Path):
+    if conffile.exists():
+        cs.sp.logger.error("Default config file exists in present directory")
         raise RuntimeError("Default config file exists in present directory")
     else:
-        logger.debug(f"{conffile.as_posix()} not exists")
+        cs.sp.logger.debug(f"{conffile.as_posix()} not exists")
 
     conf: Dict[str, Any] = {}
 
     execs: Dict[str, str] = {}
     execs['lammps'] = cs.execs.lammps
     execs['MDDPN'] = cs.execs.MDDPN
-    execs['sbatch'] = cs.execs.sbatch
-    execs['sacct'] = cs.execs.sacct
-    execs['sinfo'] = cs.execs.sinfo
-    execs['MDpoll'] = cs.execs.MDpoll
+    # execs['sbatch'] = cs.execs.sbatch
+    # execs['sacct'] = cs.execs.sacct
+    # execs['sinfo'] = cs.execs.sinfo
+    execs['spoll'] = cs.execs.spoll
     conf['execs'] = execs
 
     conf['post_processor'] = "/path/to/my/python/file"

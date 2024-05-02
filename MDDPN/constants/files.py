@@ -13,8 +13,9 @@ state: str = 'state.json'
 logfile = "main.log"
 pass_log_prefix: str = ""
 pass_log_suffix: str = ".log"
-config: str = "conf.json"
-restart_lock: str = "restart.lock"
+config_json: str = "conf.json"
+config_toml: str = "conf.toml"
+# restart_lock: str = "restart.lock"
 
 template: str = "in.template"  # this can be overriden at runtime
 params: str = "params.json"  # this can be overriden at runtime

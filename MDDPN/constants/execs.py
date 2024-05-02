@@ -10,10 +10,10 @@
 
 lammps: str = "lmp_mpi"  # this can be overriden at runtime
 MDDPN: str = "MDDPN"  # this can be overriden at runtime
-MDpoll: str = "MDpoll"  # this can be overriden at runtime
-sbatch: str = "sbatch"  # this can be overriden at runtime
-sacct: str = "sacct"  # this can be overriden at runtime
-sinfo: str = "sinfo"  # this can be overriden at runtime
+spoll: str = "spoll"  # this can be overriden at runtime
+# sbatch: str = "sbatch"  # this can be overriden at runtime
+# sacct: str = "sacct"  # this can be overriden at runtime
+# sinfo: str = "sinfo"  # this can be overriden at runtime
 
 if __name__ == "__main__":
     pass

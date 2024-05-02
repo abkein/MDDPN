@@ -6,17 +6,28 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 25-09-2023 20:36:27
+# Last modified: 02-05-2024 20:25:52
 
 import json
 import logging
-import argparse
+import functools
 from enum import Enum
 from pathlib import Path
-from typing import Generator, Dict, Any
 from contextlib import contextmanager
+from typing import Generator, Dict, Any, Callable, Union
 
 from . import constants as cs
+
+
+def logs(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Callable:
+        old_logger = cs.sp.logger
+        cs.sp.logger = old_logger.getChild(func.__name__)
+        result = func(*args, **kwargs)
+        cs.sp.logger = old_logger
+        return result
+    return wrapper
 
 
 class states(str, Enum):
@@ -43,34 +54,33 @@ class Part(str, Enum):
     run = "run"
 
 
-class LogicError(Exception):
-    pass
+class RC(Enum):
+    OK = 0
+    FILE_EXISTS = 1
+    FILE_NOT_FOUND = 2
 
 
-def com_set(cwd: Path, args: argparse.Namespace) -> Dict[str, Any]:
-    file = cwd / args.file
-    if not file.exists():
-        raise FileNotFoundError(f"There is no file {file.as_posix()}")
-    with file.open('r') as f:
-        fp = json.load(f)
-    fp[args.variable] = args.value
-    with file.open('w') as f:
-        json.dump(fp, f)
-    return fp
+class AP:
+    def __init__(self, executable: str, arguments: Union[str, None] = None) -> None:
+        self.executable = executable
+        self.arguments = arguments
+        self.ppexec: Union[str, None] = None
+        self.ppargs: Union[str, None] = None
 
 
 @contextmanager
-def load_state(cwd: Path) -> Generator[Dict[str, Any], Dict[str, Any], None]:
-    stf = cwd / cs.files.state
+def load_state() -> Generator[Dict[str, Any], Dict[str, Any], None]:
+    stf = cs.sp.cwd / cs.files.state
     if not stf.exists():
         raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
     with stf.open('r') as f:
         state: Dict[str, Any] = json.load(f)
+        cs.sp.state = state
     try:
         yield state
     finally:
         with stf.open('w') as f:
-            json.dump(state, f, indent=4)
+            json.dump(cs.sp.state, f, indent=4)
 
 
 def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Logger:
@@ -106,22 +116,6 @@ def gsr(label: str, obj, cnt: int):
             return obj[label]*cnt
 
     return obj
-
-
-def try_eval(equ: str, vars: Dict, logger: logging.Logger):
-    logger.debug(f"    Formula: '{equ}'")
-    try:
-        eval_val = eval(equ,  globals(), vars)
-    except NameError as e:
-        logger.critical(str(e))
-        logger.critical(f"Unable to evaluate '{equ}', some variables lost")
-        raise
-    except Exception as e:
-        logger.critical(str(e))
-        logger.critical(f"Unable to evaluate '{equ}', unknown error")
-        raise
-    logger.debug(f"    Evaluated value: {eval_val}")
-    return eval_val
 
 
 if __name__ == "__main__":

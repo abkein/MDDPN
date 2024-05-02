@@ -6,23 +6,23 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 15-04-2024 23:31:23
+# Last modified: 02-05-2024 20:29:38
 
 import json
-import logging
-import argparse
 from pathlib import Path
-from typing import Dict, Any, Union
-from MPMU import config
+from typing import Dict, Union
+from MPMU import confdict
 import pysbatch_ng as sbatch
 
-from .utils import states
+from .run import run_polling
 from . import constants as cs
+from .utils import states, logs, AP
 
 
-def state_runs_check(state: dict, logger: logging.Logger) -> bool:
+@logs
+def state_runs_check() -> bool:
     fl = True
-    rlabels: dict = state[cs.sf.run_labels]
+    rlabels: Dict = cs.sp.state[cs.sf.run_labels]
     for label in rlabels:
         rc = 0
         while str(rc) in rlabels[label]:
@@ -30,34 +30,36 @@ def state_runs_check(state: dict, logger: logging.Logger) -> bool:
         prc: int = rlabels[label][cs.sf.runs]
         if prc != rc:
             fl = False
-            logger.warning(f"Label {label} runs: present={prc}, real={rc}")
+            cs.sp.logger.warning(f"Label {label} runs: present={prc}, real={rc}")
     return fl
 
 
-def state_validate(cwd: Path, state: dict, logger: logging.Logger) -> bool:
+@logs
+def state_validate() -> bool:
     fl = True
-    rlabels: dict = state[cs.sf.run_labels]
+    rlabels: Dict = cs.sp.state[cs.sf.run_labels]
     for label in rlabels:
         for i in range(int(rlabels[label][cs.sf.runs])):
-            logger.debug(f"Checking {label}:{i}:{cs.sf.dump_file}")
+            cs.sp.logger.debug(f"Checking {label}:{i}:{cs.sf.dump_file}")
             try:
-                dump_file: Path = cwd / cs.folders.dumps / rlabels[label][str(i)][cs.sf.dump_file]
+                dump_file: Path = cs.sp.cwd / cs.folders.dumps / rlabels[label][str(i)][cs.sf.dump_file]
             except KeyError:
-                logging.exception(json.dumps(rlabels, indent=4))
+                cs.sp.logger.exception(json.dumps(rlabels, indent=4))
                 raise
             if not dump_file.exists():
                 fl = False
-                logger.warning(f"Dump file {dump_file.as_posix()} not exists")
+                cs.sp.logger.warning(f"Dump file {dump_file.as_posix()} not exists")
     return fl
 
 
-def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logger) -> Dict[str, Any]:
-    if not args.anyway:
-        if not (state_runs_check(state, logger.getChild('runs_check')) and state_validate(cwd, state, logger.getChild('validate'))):
-            logger.error("Stopped, state is inconsistent")
+@logs
+def ender() -> int:
+    if not cs.sp.args.anyway:
+        if not (state_runs_check() and state_validate()):
+            cs.sp.logger.error("Stopped, state is inconsistent")
             raise RuntimeError("Stopped, state is inconsistent")
 
-    logger.info(f"Trying to import {cs.sp.post_processor}")
+    cs.sp.logger.info(f"Trying to import {cs.sp.post_processor}")
     import importlib.util
     import sys
 
@@ -79,37 +81,41 @@ def ender(cwd: Path, state: Dict, args: argparse.Namespace, logger: logging.Logg
     )
 
     if spec is None:
-        logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+        cs.sp.logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
         raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
     elif spec.loader is None:
-        logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+        cs.sp.logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
         raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
 
     processor = importlib.util.module_from_spec(spec)
     sys.modules["post_processor"] = processor
     spec.loader.exec_module(processor)
-    logger.info("Import successful, calling")
-    if not args.ongoing:
-        state[cs.sf.state] = states.post_processor_called
-    executable: Union[str, None]
-    argsuments: Union[str, None]
+    cs.sp.logger.info("Import successful, calling")
+    if not cs.sp.args.ongoing:
+        cs.sp.state[cs.sf.state] = states.post_processor_called
+    # executable: Union[str, None]
+    # argsuments: Union[str, None]
     try:
         nworkers: int = cs.sp.sconf_post[sbatch.cs.fields.nnodes]*cs.sp.sconf_post[sbatch.cs.fields.ntpn]
-        executable, argsuments = processor.pp.end(
-            cwd, state.copy(), args, logger.getChild("post_processing.end"), nworkers
-        )
+        ap: AP = processor.pp.end(cs.sp.cwd, cs.sp.state.copy(), cs.sp.args, cs.sp.logger.getChild("post_processing.end"), nworkers)
     except Exception as e:
-        logger.error("Post processor raised an exception")
-        logger.exception(e)
-        return state
-    if executable is None:
-        logger.error("Post processor not returned executable")
-        return state
-    logger.info("Post processor returned, running sbatch")
-    cs.sp.sconf_post[sbatch.cs.fields.executable] = executable
-    cs.sp.sconf_post[sbatch.cs.fields.args] = argsuments
-    job_id = sbatch.sbatch.run(cwd, logger.getChild("submitter"), config(cs.sp.sconf_post))
-    if not args.ongoing:
-        state[cs.sf.state] = states.post_process_done
-    state[cs.sf.post_process_id] = job_id
-    return state
+        cs.sp.logger.error("Post processor raised an exception")
+        cs.sp.logger.exception(e)
+        return 1
+    # if executable is None:
+    #     cs.sp.logger.error("Post processor not returned executable")
+    #     return 1
+    cs.sp.logger.info("Post processor returned, running sbatch")
+    cs.sp.sconf_post[sbatch.cs.fields.executable] = ap.executable
+    cs.sp.sconf_post[sbatch.cs.fields.args] = ap.arguments
+    job_id = sbatch.sbatch.run(cs.sp.cwd, cs.sp.logger.getChild("submitter"), confdict(cs.sp.sconf_post))
+    if not cs.sp.args.ongoing:
+        cs.sp.state[cs.sf.state] = states.post_process_done
+    cs.sp.state[cs.sf.post_process_id] = job_id
+
+    cs.sp.logger.info("Staring polling")
+    ppcmd = ap.ppexec
+    if ppcmd and ap.ppexec and ap.ppargs:
+        ppcmd += " " + ap.ppargs
+    run_polling(job_id, cs.sp.state[cs.sf.tag], ppcmd)
+    return 0
