@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 20:25:52
+# Last modified: 02-05-2024 23:23:13
 
 import json
 import logging
@@ -54,10 +54,11 @@ class Part(str, Enum):
     run = "run"
 
 
-class RC(Enum):
+class RC(int, Enum):
     OK = 0
     FILE_EXISTS = 1
     FILE_NOT_FOUND = 2
+    END_REACHED = 3
 
 
 class AP:
@@ -83,8 +84,24 @@ def load_state() -> Generator[Dict[str, Any], Dict[str, Any], None]:
             json.dump(cs.sp.state, f, indent=4)
 
 
-def setup_logger(cwd: Path, name: str, level: int = logging.INFO) -> logging.Logger:
-    folder = cwd / cs.folders.log
+# def minilog(name: str) -> logging.Logger:
+#     logger = logging.getLogger(name)
+#     logger.handlers.clear()
+#     logger.setLevel(logging.DEBUG)
+#     formatter: logging.Formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+#     soutHandler = logging.StreamHandler(stream=sys.stdout)
+#     soutHandler.setLevel(logging.DEBUG)
+#     soutHandler.setFormatter(formatter)
+#     logger.addHandler(soutHandler)
+#     serrHandler = logging.StreamHandler(stream=sys.stderr)
+#     serrHandler.setFormatter(formatter)
+#     serrHandler.setLevel(logging.WARNING)
+#     logger.addHandler(serrHandler)
+#     return logger
+
+
+def setup_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
+    folder = cs.sp.cwd / cs.folders.log
     folder.mkdir(exist_ok=True, parents=True)
     logfile = folder / cs.files.logfile
     folder = folder / cs.folders.pass_log

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 20:03:38
+# Last modified: 02-05-2024 23:10:22
 
 import re
 import shutil
@@ -19,7 +19,7 @@ from . import parsers
 from . import regexs as rs
 from .run import submit_run, run_polling
 from . import constants as cs
-from .utils import RestartMode, states, logs
+from .utils import RestartMode, states, logs, RC
 
 
 def find_last(folder: Path, basename: str) -> int:
@@ -164,15 +164,15 @@ def set_last_timestep(last_timestep: int, current_label: str):
             if '0' in cs.sp.state[cs.sf.run_labels][label_c] and cs.sp.state[cs.sf.run_labels][label_c][cs.sf.runs] > 0:
                 ml = cs.sp.state[cs.sf.run_labels][label_c][cs.sf.runs] - 1
                 cs.sp.state[cs.sf.run_labels][label_c][str(ml)][cs.sf.last_step] = last_timestep
-                cs.sp.logger.info(f"On label '{label_c}' there was {cs.sp.state[cs.sf.run_labels][label_c][cs.sf.runs]} runs")
-                cs.sp.logger.info(f"Setting last '{last_timestep}' as last step for run: {ml}")
+                cs.sp.logger.debug(f"On label '{label_c}' there was {cs.sp.state[cs.sf.run_labels][label_c][cs.sf.runs]} runs")
+                cs.sp.logger.debug(f"Setting last '{last_timestep}' as last step for run: {ml}")
                 break
         elif label_c == current_label:
             fl = True
 
 
 @logs
-def restart() -> int:
+def restart() -> RC:
     cstate = states(cs.sp.state[cs.sf.state])
     if cstate != states.started and cstate != states.restarted and cstate != states.fully_initialized:
         cs.sp.logger.error("Folder isn't in appropriate state")
@@ -207,7 +207,7 @@ def restart() -> int:
             if last_timestep >= max(sldk) - int(cs.sp.state[cs.sf.restart_every]):
                 cs.sp.state[cs.sf.state] = states.comleted
                 cs.sp.logger.info("End was reached, exiting...")
-                return 0
+                return RC.END_REACHED
 
     cs.sp.logger.info("Generating restart file")
     num = int(cs.sp.state[cs.sf.run_labels][current_label][cs.sf.runs])
@@ -234,7 +234,7 @@ def restart() -> int:
     else:
         cs.sp.logger.info("This is a test, not submitting task")
 
-    return 0
+    return RC.OK
 
 
 if __name__ == "__main__":
