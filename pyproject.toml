@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "MDDPN"
-version = "0.0.1"
+version = "0.0.2"
 authors = [{ name = "Egor Perevoshchikov", email = "abkein@abkein.ru" }]
 description = "A package for continiously running LAMMPS on HPC systems with SLURM workload manager, where execution time is limited"
 readme = "README.md"
@@ -20,6 +20,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Physics",
     "Topic :: Scientific/Engineering :: Chemistry",
 ]
+dependencies = ['MPMU >= 0.0.2', 'pysbatch-ng >= 0.0.1', 'toml']
 
 [project.scripts]
 MDDPN = "MDDPN.ssd:main"

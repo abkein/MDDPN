@@ -6,23 +6,21 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 21-04-2024 23:25:17
+# Last modified: 02-05-2024 23:32:43
 
 import re
 import json
 import time
 from pathlib import Path
 
-from . import parsers
-from . import regexs as rs
-from . import constants as cs
+from . import parsers, regexs as rs, constants as cs
 from .utils import states, RestartMode, gsr, logs
 
 # TODO:
 # gen_in not properly processes folders
 
 
-# @logs
+@logs
 def process_file(file: Path) -> bool:
     state = cs.sp.state
     state[cs.sf.run_labels] = {"START": [0]}

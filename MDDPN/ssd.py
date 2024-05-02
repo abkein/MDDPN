@@ -6,21 +6,17 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 23:24:11
+# Last modified: 02-05-2024 23:31:43
 
 import sys
-import json
 import logging
 import argparse
 from pathlib import Path
-from typing import Dict, Any
 
-from . import config
-# from .run import run
 from .init import init
 from .ender import ender
 from .restart import restart
-from . import constants as cs
+from . import config, constants as cs
 from .utils import load_state, setup_logger, logs, RC
 
 
@@ -35,7 +31,6 @@ def endd():
 
 def choose() -> int:
     cs.sp.logger = setup_logger("MDDPN", logging.DEBUG)  # if args.debug else logging.INFO)
-    # cs.sp.logger = minilog("MDDPN")
     cs.sp.logger.info(f"Root folder: {cs.sp.cwd.as_posix()}")
     cs.sp.logger.info(f"Envolved args: {cs.sp.args}")
     try:
@@ -71,7 +66,7 @@ def choose() -> int:
         return 1
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(prog="MDDPN.py")
     parser.add_argument("--debug", action="store_true", help="Sets logging level to debug")
     parser.add_argument("-c", "--conf", action="store", type=str, help=f"Specify conffile. Defaults to './{cs.files.config_json}'")

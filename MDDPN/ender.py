@@ -10,7 +10,8 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict
+
 from MPMU import confdict
 import pysbatch_ng as sbatch
 
@@ -93,8 +94,6 @@ def ender() -> int:
     cs.sp.logger.info("Import successful, calling")
     if not cs.sp.args.ongoing:
         cs.sp.state[cs.sf.state] = states.post_processor_called
-    # executable: Union[str, None]
-    # argsuments: Union[str, None]
     try:
         nworkers: int = cs.sp.sconf_post[sbatch.cs.fields.nnodes]*cs.sp.sconf_post[sbatch.cs.fields.ntpn]
         ap: AP = processor.pp.end(cs.sp.cwd, cs.sp.state.copy(), cs.sp.args, cs.sp.logger.getChild("post_processing.end"), nworkers)
@@ -102,9 +101,6 @@ def ender() -> int:
         cs.sp.logger.error("Post processor raised an exception")
         cs.sp.logger.exception(e)
         return 1
-    # if executable is None:
-    #     cs.sp.logger.error("Post processor not returned executable")
-    #     return 1
     cs.sp.logger.info("Post processor returned, running sbatch")
     cs.sp.sconf_post[sbatch.cs.fields.executable] = ap.executable
     cs.sp.sconf_post[sbatch.cs.fields.args] = ap.arguments

@@ -8,10 +8,11 @@
 
 # Last modified: 01-05-2024 14:19:59
 
-import toml
 import json
 from pathlib import Path
 from typing import Dict, Any
+
+import toml
 from MPMU import is_exe
 import pysbatch_ng as sbatch
 
@@ -25,15 +26,12 @@ def execs_check() -> bool:
     if not is_exe(cs.execs.MDDPN, cs.sp.logger.getChild('is_exe')):
         cs.sp.logger.error("MDDPN executable not found")
         fl = False
-        # raise FileNotFoundError("MDDPN executable not found")
     if not is_exe(cs.execs.lammps, cs.sp.logger.getChild('is_exe')):
         cs.sp.logger.error("lammps executable not found")
         fl = False
-        # raise FileNotFoundError("lammps executable not found")
     if not is_exe(cs.execs.spoll, cs.sp.logger.getChild('is_exe')):
         cs.sp.logger.error("spoll executable not found")
         fl = False
-        # raise FileNotFoundError("spoll executable not found")
     return fl
 
 
@@ -75,11 +73,9 @@ def basic(conf: Dict[str, Any]) -> bool:
             if not Path(post_conf[cs.cf.post_processor]).resolve().exists():
                 cs.sp.logger.error(f"Cannot find post processor package by specified path: {Path(post_conf[cs.cf.post_processor]).as_posix()}:\nNo such directory")
                 fl = False
-                # raise FileNotFoundError(f"Cannot find post processor package by specified path: {Path(post_conf[cs.cf.post_processor]).as_posix()}:\nNo such directory")
             if not Path(post_conf[cs.cf.post_processor]).resolve().is_dir():
                 cs.sp.logger.error("Specified post processor path must be a package, i.e. specified path must be a directory")
                 fl = False
-                # raise FileNotFoundError("Specified post processor path must be a package, i.e. specified path must be a directory")
             cs.sp.post_processor = post_conf[cs.cf.post_processor]
 
     if cs.cf.do_test_run in conf:
@@ -134,11 +130,9 @@ def configure(conf: Dict[str, Any]) -> bool:
     if cs.cf.sect_sbatch not in conf:
         cs.sp.logger.error(f"Cannot find '{cs.cf.sect_sbatch}' entry in configuration file")
         fl = False
-        # raise RuntimeError(f"Cannot find '{cs.cf.sect_sbatch}' entry in configuration file")
     if cs.cf.sect_sbatch_main not in conf[cs.cf.sect_sbatch]:
         cs.sp.logger.error(f"Cannot find '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_main}' entry in configuration file")
         fl = False
-        # raise RuntimeError(f"Cannot find '{cs.cf.sect_sbatch}.{cs.cf.sect_sbatch_main}' entry in configuration file")
     cs.sp.logger.debug("Generating slurm configuration for main runs")
     cs.sp.sconf_main = gensconf(conf[cs.cf.sect_sbatch], cs.cf.sect_sbatch_main)
     cs.sp.logger.debug("Checking slurm configuration for main runs")
@@ -180,9 +174,6 @@ def genconf(conffile: Path):
     execs: Dict[str, str] = {}
     execs['lammps'] = cs.execs.lammps
     execs['MDDPN'] = cs.execs.MDDPN
-    # execs['sbatch'] = cs.execs.sbatch
-    # execs['sacct'] = cs.execs.sacct
-    # execs['sinfo'] = cs.execs.sinfo
     execs['spoll'] = cs.execs.spoll
     conf['execs'] = execs
 
@@ -204,12 +195,6 @@ def genconf(conffile: Path):
     del conf['slurm']['main'][sbatch.cs.fields.folder]
     conf['slurm']['post'] = conf['slurm']['main']
     conf['slurm']['test'] = conf['slurm']['main']
-    # conf['slurm']['post'] = sbatch.config.genconf()
-    # del conf['slurm']['post'][sbatch.cs.fields.execs]
-    # del conf['slurm']['post'][sbatch.cs.fields.folder]
-    # conf['slurm']['test'] = sbatch.config.genconf()
-    # del conf['slurm']['test'][sbatch.cs.fields.execs]
-    # del conf['slurm']['test'][sbatch.cs.fields.folder]
 
     with conffile.open('w') as fp:
         json.dump(conf, fp, indent=4)
