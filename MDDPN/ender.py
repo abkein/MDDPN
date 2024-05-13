@@ -56,9 +56,7 @@ def state_validate() -> bool:
 @logs
 def ender() -> int:
     if not cs.sp.args.anyway:
-        if not (state_runs_check() and state_validate()):
-            cs.sp.logger.error("Stopped, state is inconsistent")
-            raise RuntimeError("Stopped, state is inconsistent")
+        if not (state_runs_check() and state_validate()): raise RuntimeError("Stopped, state is inconsistent")
 
     cs.sp.logger.info(f"Trying to import {cs.sp.post_processor}")
     import importlib.util
@@ -81,12 +79,8 @@ def ender() -> int:
         "post_processor", processor_path_init.as_posix(), submodule_search_locations=[processor_path.as_posix()]
     )
 
-    if spec is None:
-        cs.sp.logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
-        raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
-    elif spec.loader is None:
-        cs.sp.logger.critical(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
-        raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+    if spec is None: raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
+    elif spec.loader is None: raise ImportError(f"Cannot import module by path {processor_path.as_posix()}\nSomething went wrong")
 
     processor = importlib.util.module_from_spec(spec)
     sys.modules["post_processor"] = processor
@@ -104,6 +98,7 @@ def ender() -> int:
     cs.sp.logger.info("Post processor returned, running sbatch")
     cs.sp.sconf_post[sbatch.cs.fields.executable] = ap.executable
     cs.sp.sconf_post[sbatch.cs.fields.args] = ap.arguments
+    cs.sp.logger.info(f"Cmd will be: {ap.executable} {ap.arguments}")
     job_id = sbatch.sbatch.run(cs.sp.cwd, cs.sp.logger.getChild("submitter"), confdict(cs.sp.sconf_post))
     if not cs.sp.args.ongoing:
         cs.sp.state[cs.sf.state] = states.post_process_done

@@ -169,8 +169,8 @@ def __generator(num: int, label: str) -> Path:
     cs.sp.logger.debug(json.dumps(variables, indent=4))
     out_in_file = cs.sp.cwd / cs.folders.in_file / f"{label}{num}.in"
     if out_in_file.exists():
-        cs.sp.logger.error(f"Output in. file already exists: {out_in_file.as_posix()}")
-        raise FileExistsError(f"Output in. file already exists: {out_in_file.as_posix()}")
+        out_in_file_trash = out_in_file.parent.absolute() / (out_in_file.parts[-1] + ".trash")
+        cs.sp.logger.error(f"Output in. file already exists: {out_in_file.as_posix()}. Moving it to {out_in_file_trash.as_posix()}")
 
     stf: Path = (cs.sp.cwd / cs.folders.in_templates / cs.files.template)
 
@@ -215,9 +215,7 @@ def __generator(num: int, label: str) -> Path:
                 elif RestartMode(cs.sp.state[cs.sf.restart_mode]) == RestartMode.two:
                     cs.sp.logger.debug("Restart mode is two-filed")
                     line_list = line.split()[:-1] + [f"{rfn}.a {rfn}.b", "\n"]
-                else:
-                    cs.sp.logger.critical("Software bug")
-                    raise RuntimeError("Software bug")
+                else: raise RuntimeError("Software bug")
                 line = " ".join(line_list)
             else:
                 pass  # leave unrecognized line

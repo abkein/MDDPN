@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 23:31:43
+# Last modified: 03-05-2024 03:34:04
 
 import sys
 import logging
@@ -37,16 +37,19 @@ def choose() -> int:
         if cs.sp.args.command == "genconf":
             cs.sp.logger.info("'genconf' command received")
             return config.genconf(Path(cs.sp.args.conf).resolve())
-        if not config.configure(config.loadconf()):
-            return 1
         if cs.sp.args.command == "checkconf":
             cs.sp.logger.info("'checkconf' command received")
-            return 0
+            if config.configure(config.loadconf()): return 0
+            else: return 1
         elif cs.sp.args.command == "init":
             cs.sp.logger.info("'init' command received")
-            return init()
+            if config.configure(config.loadconf()): return init()
+            else: return 1
         else:
             with load_state() as _:
+                if not config.configure(config.loadconf(Path(cs.sp.state[cs.sf.conffile_path]).resolve(), cs.sp.state[cs.sf.conffile_format])):
+                    return 1
+
                 if cs.sp.args.command == "run" or cs.sp.args.command == "restart":
                     cs.sp.logger.info(msg="'restart' command received (or 'run)")
                     lrc: RC = restart()
@@ -71,6 +74,7 @@ def main() -> int:
     parser.add_argument("--debug", action="store_true", help="Sets logging level to debug")
     parser.add_argument("-c", "--conf", action="store", type=str, help=f"Specify conffile. Defaults to './{cs.files.config_json}'")
     parser.add_argument("--toml", action="store_true", help="Change conffile format to toml")
+    parser.add_argument("--no_screen", action="store_true", help="Do not print log to console")
 
     sub_parsers = parser.add_subparsers(help="sub-command help", dest="command")
 

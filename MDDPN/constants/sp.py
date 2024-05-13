@@ -16,6 +16,7 @@ from typing import Dict, Any
 
 logger: logging.Logger = logging.Logger("null")
 formatter: logging.Formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
+screen_formatter: logging.Formatter = logging.Formatter('%(levelname)s:%(name)s: %(message)s')
 
 params: Dict[str, Any] = {}
 post_processor: str = ''
@@ -30,6 +31,9 @@ allow_post_process: bool = True
 state: Dict[str, Any] = {}
 cwd: Path = Path()
 args: argparse.Namespace = argparse.Namespace()
+
+conffile_path: Path = Path()
+conffile_format: str = ''
 
 if __name__ == "__main__":
     pass

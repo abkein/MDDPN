@@ -6,8 +6,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 23:31:38
+# Last modified: 03-05-2024 20:31:51
 
+import sys
 import json
 import logging
 import functools
@@ -61,42 +62,24 @@ class RC(int, Enum):
 
 
 class AP:
-    def __init__(self, executable: str, arguments: Union[str, None] = None) -> None:
+    def __init__(self, executable: str, arguments: Union[str, None] = None, ppexec: Union[str, None] = None, ppargs: Union[str, None] = None) -> None:
         self.executable = executable
         self.arguments = arguments
-        self.ppexec: Union[str, None] = None
-        self.ppargs: Union[str, None] = None
+        self.ppexec = ppexec
+        self.ppargs = ppargs
 
 
 @contextmanager
 def load_state() -> Generator[Dict[str, Any], Dict[str, Any], None]:
     stf = cs.sp.cwd / cs.files.state
-    if not stf.exists():
-        raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
+    if not stf.exists(): raise FileNotFoundError(f"State file '{stf.as_posix()}' not found")
     with stf.open('r') as f:
         state: Dict[str, Any] = json.load(f)
         cs.sp.state = state
-    try:
-        yield state
+    try: yield state
     finally:
         with stf.open('w') as f:
             json.dump(cs.sp.state, f, indent=4)
-
-
-# def minilog(name: str) -> logging.Logger:
-#     logger = logging.getLogger(name)
-#     logger.handlers.clear()
-#     logger.setLevel(logging.DEBUG)
-#     formatter: logging.Formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s')
-#     soutHandler = logging.StreamHandler(stream=sys.stdout)
-#     soutHandler.setLevel(logging.DEBUG)
-#     soutHandler.setFormatter(formatter)
-#     logger.addHandler(soutHandler)
-#     serrHandler = logging.StreamHandler(stream=sys.stderr)
-#     serrHandler.setFormatter(formatter)
-#     serrHandler.setLevel(logging.WARNING)
-#     logger.addHandler(serrHandler)
-#     return logger
 
 
 def setup_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
@@ -113,15 +96,27 @@ def setup_logger(name: str, level: int = logging.DEBUG) -> logging.Logger:
         last = max([int(file.relative_to(folder).as_posix()[len(cs.files.pass_log_prefix):-len(cs.files.pass_log_suffix)]) for file in dir_list])
     logfile_pass = folder / (cs.files.pass_log_prefix + str(last + 1) + cs.files.pass_log_suffix)
 
+    logger = logging.getLogger(name)
+    logger.handlers.clear()
+    logger.setLevel(level)
+
     handler = logging.FileHandler(logfile)
     handler.setFormatter(cs.sp.formatter)
+    logger.addHandler(handler)
+
     handler_pass = logging.FileHandler(logfile_pass)
     handler_pass.setFormatter(cs.sp.formatter)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.addHandler(handler)
     logger.addHandler(handler_pass)
+
+    if not cs.sp.args.no_screen:
+        soutHandler = logging.StreamHandler(stream=sys.stdout)
+        soutHandler.setLevel(logging.DEBUG)
+        soutHandler.setFormatter(cs.sp.screen_formatter)
+        logger.addHandler(soutHandler)
+        serrHandler = logging.StreamHandler(stream=sys.stderr)
+        serrHandler.setFormatter(cs.sp.screen_formatter)
+        serrHandler.setLevel(logging.WARNING)
+        logger.addHandler(serrHandler)
 
     return logger
 

@@ -6,7 +6,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 02-05-2024 20:21:45
+# Last modified: 03-05-2024 18:55:16
 
 import os
 import time
@@ -50,19 +50,19 @@ def test_run(in_file: Path) -> bool:
     jobid = pysbatch_ng.sbatch.run(new_cwd, cs.sp.logger.getChild("submitter"), confdict(cs.sp.sconf_test))
     cs.sp.logger.info(f"Submitted test jod id: {jobid}")
     try:
-        res_state = pysbatch_ng.polling.loop(jobid, 20, cs.sp.logger.getChild("poll"), 60*60)
+        success = pysbatch_ng.polling.loop(jobid, 20, cs.sp.logger.getChild("poll"), 60*60)
     except Exception as e:
         cs.sp.logger.error("Exception during polling test run")
         cs.sp.logger.exception(e)
         raise
     os.chdir(cs.sp.cwd)
-    cs.sp.logger.debug(f"Polling complete, result state: '{str(res_state)}'")
-    if res_state == pysbatch_ng.polling.SStates.COMPLETED:
-        cs.sp.logger.info("State ok, cleaning temporary dir")
+    cs.sp.logger.debug(f"Polling complete.")
+    if success:
+        cs.sp.logger.info("Success, cleaning temporary dir")
         shutil.rmtree(new_cwd)
         return True
     else:
-        print("Error on test run")
+        cs.sp.logger.error("Error on test run")
         return False
 
 @logs
@@ -80,7 +80,12 @@ def run_polling(jobid: int, tag: int, cmd: Union[str, None] = None) -> None:
     pysb_conf[pysbatch_ng.cs.fields.every] = 5
     pysb_conf[pysbatch_ng.cs.fields.times_criteria] = 288
 
-    pysbatch_ng.spoll.run_conf(pysb_conf, cs.sp.cwd / cs.folders.slurm, cs.sp.logger.getChild("spoll"))
+    conff = {
+        pysbatch_ng.cs.fields.spoll: pysb_conf,
+        pysbatch_ng.cs.fields.sbatch: cs.sp.sconf_test
+        }
+
+    pysbatch_ng.spoll.run_conf(conff, cs.sp.cwd / cs.folders.slurm, cs.sp.logger.getChild("spoll"))
 
 
 @logs
@@ -100,9 +105,7 @@ def submit_run(infile: Path, number: int) -> int:
         jobid (int): slurm's jobid
     """
     if cs.sp.run_tests:
-        if not test_run(infile):
-            cs.sp.logger.error("Test run was unsuccessfull")
-            raise RuntimeError("Test run was unsuccessfull")
+        if not test_run(infile): raise RuntimeError("Test run was unsuccessfull")
     cs.sp.sconf_main[pysbatch_ng.cs.fields.executable] = cs.execs.lammps
     cs.sp.sconf_main[pysbatch_ng.cs.fields.args] = "-v test 1 -nonbuf -echo both -log '{jd}/log.lammps' -in " + infile.as_posix()
     return pysbatch_ng.sbatch.run(cs.sp.cwd, cs.sp.logger.getChild("submitter"), confdict(cs.sp.sconf_main), number)

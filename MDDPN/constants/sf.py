@@ -33,6 +33,8 @@ end_step: str = "end_step"
 last_step: str = "last_step"
 
 post_process_id: str = "post_process"
+conffile_path: str = "conffile"
+conffile_format: str = 'conffile_format'
 
 if __name__ == "__main__":
     pass

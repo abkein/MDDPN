@@ -53,7 +53,7 @@ def restart2data(restartfile: Path) -> Path:
     datafile_parts = parts + [file_basename + ".dat"]
     datafile = Path(*datafile_parts)
     cs.sp.logger.debug(f"Resulting datafile: {datafile.as_posix()}")
-    cmd = f"{cs.execs.lammps} -restart2data {restartfile.as_posix()} {datafile.as_posix()}"
+    cmd = f"{cs.execs.lammps_nonmpi} -restart2data {restartfile.as_posix()} {datafile.as_posix()}"
     wexec(cmd, cs.sp.logger.getChild('lammps-r2d'))
     return datafile
 
@@ -67,12 +67,8 @@ def retrieve_last_step_from_restart(restartfile: Path) -> int:
         m = re.findall(r"timestep = \d+", line)
         if len(m) == 1:
             return int(m[0].split()[-1])
-        else:
-            cs.sp.logger.error(f"Can not get last timestep from datafile header: {datafile.as_posix()}")
-            raise RuntimeError(f"Can not get last timestep from datafile header: {datafile.as_posix()}")
-    else:
-        cs.sp.logger.error(f"Resulting datafile does not contain proper header: {datafile.as_posix()}")
-        raise RuntimeError(f"Resulting datafile does not contain proper header: {datafile.as_posix()}")
+        else: raise RuntimeError(f"Can not get last timestep from datafile header: {datafile.as_posix()}")
+    else: raise RuntimeError(f"Resulting datafile does not contain proper header: {datafile.as_posix()}")
 
 
 @logs
@@ -80,17 +76,13 @@ def retrieve_last_timestep() -> Tuple[int, Path]:
     if RestartMode(cs.sp.state[cs.sf.restart_mode]) == RestartMode.multiple:
         if cs.sp.args.step is None:
             last_timestep: int = find_last(cs.sp.cwd / cs.folders.restarts, cs.sp.state[cs.sf.restart_files])
-            if last_timestep < 0:
-                cs.sp.logger.critical(f"Cannot find any restart files in folder {(cs.sp.cwd / cs.folders.restarts).as_posix()}")
-                raise RuntimeError(f"Cannot find any restart files in folder {(cs.sp.cwd / cs.folders.restarts).as_posix()}")
+            if last_timestep < 0: raise RuntimeError(f"Cannot find any restart files in folder {(cs.sp.cwd / cs.folders.restarts).as_posix()}")
             cs.sp.logger.info("Cleaning restarts folder")
             restart_cleanup(last_timestep)
         else:
             last_timestep = cs.sp.args.step
         restart_file: Path = cs.sp.cwd / cs.folders.restarts / (cs.sp.state[cs.sf.restart_files] + f".{last_timestep}")
-        if not restart_file.exists():
-            cs.sp.logger.critical("Specified step restart file not found")
-        raise RuntimeError("Specified step restart file not found")
+        if not restart_file.exists(): raise RuntimeError("Specified step restart file not found")
     elif RestartMode(cs.sp.state[cs.sf.restart_mode]) == RestartMode.one:
         restart_file = cs.sp.cwd / cs.folders.restarts / cs.sp.state[cs.sf.restart_files]
         last_timestep = retrieve_last_step_from_restart(restart_file)
@@ -107,9 +99,7 @@ def retrieve_last_timestep() -> Tuple[int, Path]:
             last_timestep = last_timestep2
             restart_file = restart_file2
             restart_file1.unlink()
-    else:
-        cs.sp.logger.critical("Software bug")
-        raise RuntimeError("Software bug")
+    else: raise RuntimeError("Software bug")
 
     return (last_timestep, restart_file)
 
@@ -175,12 +165,9 @@ def set_last_timestep(last_timestep: int, current_label: str):
 def restart() -> RC:
     cstate = states(cs.sp.state[cs.sf.state])
     if cstate != states.started and cstate != states.restarted and cstate != states.fully_initialized:
-        cs.sp.logger.error("Folder isn't in appropriate state")
         raise RuntimeError("Folder isn't in appropriate state")
     lockfile = cs.sp.cwd / f"{cs.sp.state[cs.sf.tag]}.lock"
-    if lockfile.exists():
-        cs.sp.logger.error(f"Lockfile exists: {lockfile.as_posix()}")
-        raise Exception(f"Lockfile exists: {lockfile.as_posix()}")
+    if lockfile.exists(): raise Exception(f"Lockfile exists: {lockfile.as_posix()}")
 
     if cstate == states.fully_initialized:
         current_label = "START"

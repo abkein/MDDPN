@@ -197,13 +197,13 @@ def init():
         cs.sf.tag: round(time.time()),
         cs.sf.run_counter: 0,
         cs.sf.user_variables: variables,
-        cs.sf.restart_mode: RestartMode(str(cs.sp.args.restart_mode))
+        cs.sf.restart_mode: RestartMode(str(cs.sp.args.restart_mode)),
+        cs.sf.conffile_path: cs.sp.conffile_path.as_posix(),
+        cs.sf.conffile_format: cs.sp.conffile_format
     }
 
     stf: Path = (cs.sp.cwd / cs.folders.in_templates / cs.files.template)
-    if not stf.exists():
-        cs.sp.logger.error(f"Start template file {stf.as_posix()} was not found, unable to proceed.")
-        raise FileNotFoundError(f"File {stf.as_posix()} not found")
+    if not stf.exists(): raise FileNotFoundError(f"Start template file {stf.as_posix()} was not found, unable to proceed.")
 
     cs.sp.logger.info("Processing 1-st stage: processing template file")
     process_file(stf)

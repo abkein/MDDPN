@@ -6,11 +6,11 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-# Last modified: 01-05-2024 14:19:59
+# Last modified: 03-05-2024 03:30:36
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import toml
 from MPMU import is_exe
@@ -29,6 +29,9 @@ def execs_check() -> bool:
     if not is_exe(cs.execs.lammps, cs.sp.logger.getChild('is_exe')):
         cs.sp.logger.error("lammps executable not found")
         fl = False
+    if not is_exe(cs.execs.lammps_nonmpi, cs.sp.logger.getChild('is_exe')):
+        cs.sp.logger.error("lammps_nonmpi executable not found")
+        fl = False
     if not is_exe(cs.execs.spoll, cs.sp.logger.getChild('is_exe')):
         cs.sp.logger.error("spoll executable not found")
         fl = False
@@ -43,6 +46,8 @@ def basic(conf: Dict[str, Any]) -> bool:
         execs = conf[cs.cf.sect_execs]
         if cs.cf.lammps in execs:
             cs.execs.lammps = execs[cs.cf.lammps]
+        if cs.cf.lammps_nonmpi in execs:
+            cs.execs.lammps_nonmpi = execs[cs.cf.lammps_nonmpi]
         if cs.cf.MDDPN in execs:
             cs.execs.MDDPN = execs[cs.cf.MDDPN]
         if cs.cf.spoll in execs:
@@ -97,27 +102,34 @@ def gensconf(_conf: Dict[str, Any], section: str) -> Dict[str, Any]:
 
 
 @logs
-def loadconf() -> Dict[str, Any]:
-    if cs.sp.args.conf:
-        conffile = Path(cs.sp.args.conf).resolve()
-        cs.sp.logger.debug(f"Searching for specified conffile: '{conffile.as_posix()}'")
-    else:
-        conffile = cs.sp.cwd / (cs.files.config_toml if cs.sp.args.toml else cs.files.config_json)
-        cs.sp.logger.debug(f"Searching for conffile: '{conffile.as_posix()}'")
+def loadconf(conffile: Union[Path, None] = None, conf_format: Union[str, None] = None) -> Dict[str, Any]:
+    if not conffile:
+        if cs.sp.args.conf:
+            conffile = Path(cs.sp.args.conf).resolve()
+            cs.sp.logger.debug(f"Searching for specified conffile: '{conffile.as_posix()}'")
+        else:
+            conffile = cs.sp.cwd / (cs.files.config_toml if cs.sp.args.toml else cs.files.config_json)
+            cs.sp.logger.debug(f"Searching for conffile: '{conffile.as_posix()}'")
+
     if conffile.exists():
+        cs.sp.conffile_path = conffile
+        cs.sp.conffile_format = conf_format if conf_format else ('toml' if cs.sp.args.toml else 'json')
+
         cs.sp.logger.debug("Found configuration file")
         with conffile.open('r') as fp:
             cs.sp.logger.debug("Reading configuration file")
-            if cs.sp.args.toml:
+
+            if cs.sp.conffile_format == 'toml':
                 cs.sp.logger.debug('Using toml')
                 conf = toml.load(fp)[cs.cf.sect_MDDPN]
             else:
                 cs.sp.logger.debug('Using json')
                 conf = json.load(fp)[cs.cf.sect_MDDPN]
-            return conf
-    else:
-        cs.sp.logger.error(f"Config file {conffile.as_posix()} was not found")
-        raise FileNotFoundError(f"Config file {conffile.as_posix()} was not found")
+                cs.sp.conffile_format = 'json'
+    else: raise FileNotFoundError(f"Config file {conffile.as_posix()} was not found")
+
+
+    return conf
 
 @logs
 def configure(conf: Dict[str, Any]) -> bool:
@@ -163,11 +175,8 @@ def configure(conf: Dict[str, Any]) -> bool:
 
 @logs
 def genconf(conffile: Path):
-    if conffile.exists():
-        cs.sp.logger.error("Default config file exists in present directory")
-        raise RuntimeError("Default config file exists in present directory")
-    else:
-        cs.sp.logger.debug(f"{conffile.as_posix()} not exists")
+    if conffile.exists(): raise RuntimeError("Default config file exists in present directory")
+    else: cs.sp.logger.debug(f"{conffile.as_posix()} not exists")
 
     conf: Dict[str, Any] = {}
 

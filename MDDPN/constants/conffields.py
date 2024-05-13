@@ -17,6 +17,7 @@ sect_MDDPN: str = 'MDDPN'
 
 MDDPN: str = 'MDDPN'
 lammps: str = 'lammps'
+lammps_nonmpi: str = 'lammps_nonmpi'
 spoll: str = 'spoll'
 
 sect_execs: str = 'execs'

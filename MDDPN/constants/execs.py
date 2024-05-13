@@ -9,6 +9,7 @@
 # Last modified: 08-09-2023 01:39:15
 
 lammps: str = "lmp_mpi"  # this can be overriden at runtime
+lammps_nonmpi: str = "lmp_serial"  # this can be overriden at runtime
 MDDPN: str = "MDDPN"  # this can be overriden at runtime
 spoll: str = "spoll"  # this can be overriden at runtime
 # sbatch: str = "sbatch"  # this can be overriden at runtime
